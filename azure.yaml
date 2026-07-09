@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: delivery-app
+metadata:
+    template: azd-init@1.27.0
+services:
+    shopdelivery-api:
+        project: ShopDelivery.Api
+        host: containerapp
+        language: dotnet
+resources:
+    shopdelivery-api:
+        type: host.containerapp
+        port: 8080

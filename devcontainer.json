@@ -1,5 +1,5 @@
 {
-  "name": "DeliveryApp .NET 9",
+  "name": "ShopDelivery .NET 9",
   "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
   "features": {
     "ghcr.io/devcontainers/features/azure-cli:1": {},

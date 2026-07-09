@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ShopDelivery.Ai/ShopDelivery.Ai.csproj" />
+  <Project Path="ShopDelivery.Api/ShopDelivery.Api.csproj" />
+  <Project Path="ShopDelivery.Shared/ShopDelivery.Shared.csproj" />
+  <Project Path="ShopDelivery.Web/ShopDelivery.Web.csproj" />
+</Solution>

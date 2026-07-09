@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-api",
+      "program": "${workspaceFolder}/ShopDelivery.Api/bin/Debug/net10.0/ShopDelivery.Api.dll",
+      "cwd": "${workspaceFolder}/ShopDelivery.Api",
+      "env": { "ASPNETCORE_ENVIRONMENT": "Development" },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      }
+    },
+    {
+      "name": "Blazor Web",
+      "type": "blazorwasm",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/ShopDelivery.Web",
+      "launchBrowser": true,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "App (API + Web)",
+      "configurations": ["API", "Blazor Web"],
+      "stopAll": true
+    }
+  ]
+}

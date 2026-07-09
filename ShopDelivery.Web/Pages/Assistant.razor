@@ -1,0 +1,85 @@
+@page "/assistant"
+@inject ShopApiClient Api
+
+<PageTitle>Shopping Assistant</PageTitle>
+
+<h1>Shopping Assistant</h1>
+
+<div class="chat-log">
+    @foreach (var message in _messages)
+    {
+        <div class="chat-message @(message.IsUser ? "from-user" : "from-assistant")">
+            <span class="author">@(message.IsUser ? "You" : "Assistant")</span>
+            <p>@message.Text</p>
+        </div>
+    }
+
+    @if (_busy)
+    {
+        <div class="chat-message from-assistant">
+            <span class="author">Assistant</span>
+            <p><em>Thinking…</em></p>
+        </div>
+    }
+</div>
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+
+<div class="chat-input">
+    <input @bind="_input"
+           @bind:event="oninput"
+           @onkeydown="OnKeyDown"
+           placeholder="Ask about products or your delivery…"
+           disabled="@_busy" />
+    <button @onclick="SendAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_input))">
+        Send
+    </button>
+</div>
+
+@code {
+    private readonly List<ChatMessage> _messages = [];
+    private string _input = "";
+    private string? _error;
+    private bool _busy;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_busy)
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        var prompt = _input.Trim();
+        if (prompt.Length == 0 || _busy)
+        {
+            return;
+        }
+
+        _error = null;
+        _input = "";
+        _messages.Add(new ChatMessage(prompt, IsUser: true));
+        _busy = true;
+
+        try
+        {
+            var reply = await Api.AskAssistantAsync(prompt);
+            _messages.Add(new ChatMessage(reply.Reply, IsUser: false));
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't reach the assistant: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed record ChatMessage(string Text, bool IsUser);
+}
