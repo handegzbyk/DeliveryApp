@@ -38,6 +38,15 @@ ScaffoldingReadMe.txt
 
 # dotenv environment variables file
 .env
+.env.local
+
+# appsettings with local/user configuration
+appsettings.Development.json
+appsettings.*.user.json
+*.local.json
+
+# Azure configuration
+.azure/**/.env
 
 # Others
 ~$*
@@ -56,3 +65,9 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 .azure
+
+.env
+*.local.json
+appsettings.Development.json
+.azure/**/.env
+appsettings.*.user.json
