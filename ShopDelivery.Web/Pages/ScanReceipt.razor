@@ -1,0 +1,71 @@
+@page "/scan"
+@inject ShopApiClient Api
+
+<PageTitle>Scan Receipt</PageTitle>
+
+<h1>Scan a Receipt</h1>
+
+<InputFile OnChange="OnFileSelected" accept="image/*" capture="environment" />
+
+@if (_busy)
+{
+    <p><em>Reading receipt…</em></p>
+}
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+
+@if (_result is not null)
+{
+    <h2>@(_result.MerchantName ?? "Unknown store")</h2>
+    <p>Date: @(_result.PurchasedOn?.ToString("d") ?? "—") · Total: @(_result.Total?.ToString("C") ?? "—")</p>
+
+    <table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
+        <tbody>
+            @foreach (var line in _result.Lines)
+            {
+                <tr>
+                    <td>@line.Description</td>
+                    <td>@(line.Quantity?.ToString() ?? "—")</td>
+                    <td>@(line.Price?.ToString("C") ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private ScannedReceipt? _result;
+    private string? _error;
+    private bool _busy;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _result = null;
+        _busy = true;
+
+        try
+        {
+            var file = e.File;
+            // Cap to a sane size; Document Intelligence accepts up to a few MB.
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            _result = await Api.ScanReceiptAsync(memory, file.Name);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't read the receipt: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

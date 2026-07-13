@@ -1,46 +1,64 @@
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using ShopDelivery.Ai;
 using ShopDelivery.Api.Data;
-using ShopDelivery.Api.Hubs;
+using ShopDelivery.Api.Receipts;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Codespaces tunnels mishandle HTTP/2 POST bodies (multipart upload) → force HTTP/1.1
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ConfigureEndpointDefaults(listen => listen.Protocols = HttpProtocols.Http1);
+});
+
+// --- Database: pick a provider based on what's configured ---
 var sqlConnection = builder.Configuration.GetConnectionString("Sql");
 
 builder.Services.AddDbContext<ShopDbContext>(o =>
 {
-    if (string.IsNullOrWhiteSpace(sqlConnection))
-        o.UseInMemoryDatabase("ShopDelivery");   // dev / Codespaces: no SQL needed
-    else
-        o.UseSqlServer(sqlConnection);            // production: Azure SQL via config
-});
-
-builder.Services.AddSignalR();
-builder.Services.AddAiServices(builder.Configuration); // extension from ShopDelivery.Ai
-builder.Services.AddCors();
-
-builder.Services.AddDbContext<ShopDbContext>(o =>
-{
     if (!string.IsNullOrWhiteSpace(sqlConnection))
-        o.UseSqlServer(sqlConnection);              // production: Azure SQL
+        o.UseSqlServer(sqlConnection);
     else if (builder.Environment.IsDevelopment())
-        o.UseSqlite("Data Source=shopdelivery.db"); // Codespaces: local file, persists
+        o.UseSqlite("Data Source=shopdelivery.db");
     else
-        o.UseInMemoryDatabase("ShopDelivery");      // fallback
+        o.UseInMemoryDatabase("ShopDelivery");
 });
+
+builder.Services.AddReceiptScanning(builder.Configuration);
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy.SetIsOriginAllowed(origin =>
+                {
+                    var host = new Uri(origin).Host;
+                    return host.EndsWith(".azurestaticapps.net", StringComparison.OrdinalIgnoreCase)
+                        || host == "localhost";
+                })
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Create the store and apply seed data (also works with the InMemory provider).
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ShopDbContext>();
     db.Database.EnsureCreated();
 }
 
-app.UseCors(p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
-app.MapGet("/api/products", (ShopDbContext db) => db.Products.ToListAsync());
-app.MapHub<DeliveryHub>("/hubs/delivery");   // realtime tracking
+app.UseCors(); 
+
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok", at = DateTimeOffset.UtcNow }))
+   .WithName("HealthCheck");
+
+app.MapReceiptEndpoints();
 
 app.Run();

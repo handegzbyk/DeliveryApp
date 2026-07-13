@@ -8,7 +8,15 @@ services:
         project: ShopDelivery.Api
         host: containerapp
         language: dotnet
+    shopdelivery-web:
+        project: ShopDelivery.Web
+        host: staticwebapp
+        language: dotnet
+        dist: wwwroot
 resources:
     shopdelivery-api:
         type: host.containerapp
         port: 8080
+    shopdelivery-web:
+        type: host.staticwebapp
+    

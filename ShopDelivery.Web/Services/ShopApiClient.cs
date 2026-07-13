@@ -5,13 +5,16 @@ namespace ShopDelivery.Web.Services;
 
 public sealed class ShopApiClient(HttpClient http)
 {
-    public async Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken ct = default) =>
-        await http.GetFromJsonAsync<IReadOnlyList<Product>>("api/products", ct) ?? [];
-
-    public async Task<ChatReply> AskAssistantAsync(string message, CancellationToken ct = default)
+    public async Task<ScannedReceipt?> ScanReceiptAsync(
+        Stream image, string fileName, CancellationToken ct = default)
     {
-        var response = await http.PostAsJsonAsync("api/assistant", new ChatRequest(message), ct);
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(image);
+        content.Add(fileContent, "file", fileName);
+
+        var response = await http.PostAsync("api/receipts/scan", content, ct);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ChatReply>(ct))!;
+
+        return await response.Content.ReadFromJsonAsync<ScannedReceipt>(ct);
     }
 }

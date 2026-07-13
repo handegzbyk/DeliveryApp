@@ -8,7 +8,7 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Must match the API's https port (HttpsPort in ShopDelivery.Api)
-const int apiPort = 7215;
+const int apiPort = 5277;
 
 var apiBaseUrl = ResolveApiBaseUrl(
     builder.HostEnvironment.BaseAddress,

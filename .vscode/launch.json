@@ -18,6 +18,7 @@
       "name": "Blazor Web",
       "type": "blazorwasm",
       "request": "launch",
+      "preLaunchTask": "kill-ports",
       "cwd": "${workspaceFolder}/ShopDelivery.Web",
       "launchBrowser": true,
       "serverReadyAction": {
