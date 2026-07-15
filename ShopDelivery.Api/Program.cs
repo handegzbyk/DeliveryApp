@@ -40,6 +40,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<ProductMatcher>();
 
 var app = builder.Build();
 

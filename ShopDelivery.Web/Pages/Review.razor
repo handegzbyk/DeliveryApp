@@ -1,0 +1,86 @@
+@page "/review"
+@inject ShopApiClient Api
+
+<h3>Review receipt</h3>
+
+@if (_model is null)
+{
+    <InputFile OnChange="OnFile" accept="image/*" />
+    @if (_busy) { <p>Scanning…</p> }
+}
+else
+{
+    <p><b>@_model.StoreName</b> — @_model.PurchasedAt.ToString("d") — Total @_model.Total</p>
+
+    @foreach (var row in _rows)
+    {
+        <div class="review-row">
+            <div class="raw">@row.RawText — @row.Price</div>
+
+            <input @bind="row.ProductName" placeholder="Product name" />
+
+            @* brand slider / carousel *@
+            <div class="brand-slider">
+                @foreach (var b in row.BrandOptions)
+                {
+                    <button class="@(row.SelectedBrandId == b.BrandId ? "chip selected" : "chip")"
+                            @onclick="() => row.SelectedBrandId = b.BrandId">
+                        @b.Name
+                    </button>
+                }
+                <input @bind="row.NewBrandName" placeholder="+ new brand" />
+            </div>
+
+            <label>
+                <input type="checkbox" @bind="row.CreateNew" />
+                @(row.SuggestedProductId is null ? "New product" : "Create new instead of match")
+            </label>
+        </div>
+    }
+
+    <button @onclick="Confirm" disabled="@_busy">Confirm & save</button>
+}
+
+@code {
+    ScanReviewResponse? _model;
+    List<RowVm> _rows = new();
+    bool _busy;
+
+    async Task OnFile(InputFileChangeEventArgs e)
+    {
+        _busy = true;
+        _model = await Api.ReviewAsync(e.File);        // POST /api/receipts/review
+        _rows = _model.Lines.Select(l => new RowVm(l)).ToList();
+        _busy = false;
+    }
+
+    async Task Confirm()
+    {
+        _busy = true;
+        var req = new ConfirmRequest(
+            _model!.StoreName, _model.PurchasedAt, _model.Total,
+            _rows.Select(r => r.ToConfirmLine()).ToList());
+        await Api.ConfirmAsync(req);                    // POST /api/receipts/confirm
+        _busy = false;
+        _model = null;                                 // reset
+    }
+
+    class RowVm(ReviewLine l)
+    {
+        public string RawText => l.RawText;
+        public decimal Price => l.Price;
+        public int Quantity => l.Quantity;
+        public int? SuggestedProductId => l.SuggestedProductId;
+        public List<BrandOption> BrandOptions => l.BrandOptions;
+
+        public string ProductName { get; set; } = l.SuggestedName;
+        public int? SelectedBrandId { get; set; }
+        public string? NewBrandName { get; set; }
+        public bool CreateNew { get; set; } = l.SuggestedProductId is null;
+
+        public ConfirmLine ToConfirmLine() => new(
+            RawText, Price, Quantity,
+            CreateNew ? null : SuggestedProductId,
+            ProductName, SelectedBrandId, NewBrandName);
+    }
+}
