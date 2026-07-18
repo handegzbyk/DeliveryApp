@@ -7,12 +7,12 @@ public class Brand
 public class Product
 {
     public int Id { get; set; }
-    public string Name { get; set; } = "";          // canonical name, e.g. "Milk 1L"
+    public string Name { get; set; } = "";
     public int? BrandId { get; set; }
     public Brand? Brand { get; set; }
-    public string? Category { get; set; }
 
-    public ICollection<PriceObservation> Prices { get; set; } = new List<PriceObservation>();
+    public string? Category { get; set; }   // filled by enrichment
+    public string? ImageUrl { get; set; }    // filled by enrichment
 }
 
 public class Store

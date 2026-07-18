@@ -1,30 +1,38 @@
-
 using Microsoft.EntityFrameworkCore;
-using ShopDelivery.Api.Data;    
+using ShopDelivery.Api.Data;
+using ShopDelivery.Shared;
 
 namespace ShopDelivery.Api.Receipts;
 
 public class ProductMatcher(ShopDbContext db)
 {
-    public async Task<(int? productId, string name)> BestMatchAsync(string rawText)
+    public const double MatchThreshold = 0.8;
+    private const int MaxCandidates = 8;
+
+    public async Task<(int? matchedId, List<ProductCandidate> candidates)> TopMatchesAsync(
+        string rawText, CancellationToken ct)
     {
-        var normalized = Normalize(rawText);
-        var products = await db.Products.ToListAsync();
+        var products = await db.Products.ToListAsync(ct);
 
-        var best = products
-            .Select(p => (p, score: Similarity(normalized, Normalize(p.Name))))
-            .OrderByDescending(x => x.score)
-            .FirstOrDefault();
+        var norm = Normalize(rawText);
+        var ranked = products
+            .Select(p => new ProductCandidate(p.Id, p.Name, p.ImageUrl, Similarity(norm, Normalize(p.Name))))
+            .OrderByDescending(c => c.Score)
+            .Take(MaxCandidates)
+            .ToList();
 
-        return best.score >= 0.6           // threshold
-            ? (best.p.Id, best.p.Name)
-            : (null, TitleCase(rawText));   // no match → suggest cleaned raw text
+        var best = ranked.FirstOrDefault();
+
+        // always offer "create new"
+        ranked.Add(new ProductCandidate(null, TitleCase(rawText), null, 0));
+
+        int? matchedId = best is { Score: >= MatchThreshold } ? best.ProductId : null;
+        return (matchedId, ranked);
     }
 
     private static string Normalize(string s) =>
         new string(s.ToLowerInvariant().Where(c => char.IsLetterOrDigit(c) || c == ' ').ToArray()).Trim();
 
-    // Simple token-overlap similarity (swap for Levenshtein if you prefer)
     private static double Similarity(string a, string b)
     {
         var ta = a.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();

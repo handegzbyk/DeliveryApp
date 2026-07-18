@@ -1,4 +1,5 @@
 namespace ShopDelivery.Shared;
+
 public record ScanReviewResponse(
     string StoreName,
     DateTimeOffset PurchasedAt,
@@ -9,13 +10,18 @@ public record ReviewLine(
     string RawText,
     decimal Price,
     int Quantity,
-    int? SuggestedProductId,            // best existing match, or null
-    string SuggestedName,               // pre-filled editable name
-    List<BrandOption> BrandOptions);    // for the slider/carousel
+    int? MatchedProductId,              // set = confidently matched (score ≥ threshold)
+    List<ProductCandidate> Candidates,  // sliding gallery when unmatched
+    List<BrandOption> BrandOptions);
+
+public record ProductCandidate(
+    int? ProductId,      // existing product; null = "create new"
+    string Name,
+    string? ImageUrl,
+    double Score);
 
 public record BrandOption(int? BrandId, string Name);
 
-// What the UI posts back on Confirm
 public record ConfirmRequest(
     string StoreName,
     DateTimeOffset PurchasedAt,
@@ -23,10 +29,5 @@ public record ConfirmRequest(
     List<ConfirmLine> Lines);
 
 public record ConfirmLine(
-    string RawText,
-    decimal Price,
-    int Quantity,
-    int? ProductId,          // set = match existing; null = create new
-    string ProductName,      // used when creating new
-    int? BrandId,
-    string? NewBrandName);   // if user typed a brand not in the list
+    string RawText, decimal Price, int Quantity,
+    int? ProductId, string ProductName, int? BrandId, string? NewBrandName);

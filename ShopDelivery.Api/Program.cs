@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using ShopDelivery.Ai;
 using ShopDelivery.Api.Data;
+using ShopDelivery.Api.Enrichment;
 using ShopDelivery.Api.Receipts;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,7 +42,9 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<ProductMatcher>();
-
+builder.Services.AddSingleton<IEnrichmentQueue, EnrichmentQueue>();
+builder.Services.AddHostedService<EnrichmentWorker>();
+builder.Services.AddHttpClient<IProductEnricher, OpenFoodFactsEnricher>();
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())

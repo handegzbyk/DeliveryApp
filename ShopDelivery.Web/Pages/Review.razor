@@ -1,5 +1,7 @@
 @page "/review"
+@using ShopDelivery.Shared
 @inject ShopApiClient Api
+@inject NavigationManager Nav
 
 <h3>Review receipt</h3>
 
@@ -15,30 +17,48 @@ else
     @foreach (var row in _rows)
     {
         <div class="review-row">
-            <div class="raw">@row.RawText — @row.Price</div>
+            <div class="raw">@row.RawText — @row.Price @(row.Quantity > 1 ? $"×{row.Quantity}" : "")</div>
 
-            <input @bind="row.ProductName" placeholder="Product name" />
+            @if (row.IsMatched)
+            {
+                @* MATCHED → just listed *@
+                <div class="matched">✔ @row.SelectedName</div>
+                <button class="link" @onclick="() => row.IsMatched = false">change</button>
+            }
+            else
+            {
+                @* UNMATCHED → sliding gallery of candidates *@
+                <div class="gallery">
+                    @foreach (var c in row.Candidates)
+                    {
+                        <div class="card @(row.SelectedCandidate == c ? "selected" : "")"
+                             @onclick="() => row.Select(c)">
+                            @if (!string.IsNullOrEmpty(c.ImageUrl))
+                            {
+                                <img src="@c.ImageUrl" alt="@c.Name" />
+                            }
+                            <div class="name">@(c.ProductId is null ? $"+ New: {c.Name}" : c.Name)</div>
+                        </div>
+                    }
+                </div>
 
-            @* brand slider / carousel *@
-            <div class="brand-slider">
-                @foreach (var b in row.BrandOptions)
+                @* brand chips for the chosen (new) product *@
+                @if (row.SelectedCandidate?.ProductId is null)
                 {
-                    <button class="@(row.SelectedBrandId == b.BrandId ? "chip selected" : "chip")"
-                            @onclick="() => row.SelectedBrandId = b.BrandId">
-                        @b.Name
-                    </button>
+                    <div class="brand-slider">
+                        @foreach (var b in row.BrandOptions)
+                        {
+                            <button class="chip @(row.SelectedBrandId == b.BrandId ? "selected" : "")"
+                                    @onclick="() => row.SelectedBrandId = b.BrandId">@b.Name</button>
+                        }
+                        <input @bind="row.NewBrandName" placeholder="+ new brand" />
+                    </div>
                 }
-                <input @bind="row.NewBrandName" placeholder="+ new brand" />
-            </div>
-
-            <label>
-                <input type="checkbox" @bind="row.CreateNew" />
-                @(row.SuggestedProductId is null ? "New product" : "Create new instead of match")
-            </label>
+            }
         </div>
     }
 
-    <button @onclick="Confirm" disabled="@_busy">Confirm & save</button>
+    <button class="primary" @onclick="Confirm" disabled="@_busy">Confirm shopping</button>
 }
 
 @code {
@@ -49,7 +69,7 @@ else
     async Task OnFile(InputFileChangeEventArgs e)
     {
         _busy = true;
-        _model = await Api.ReviewAsync(e.File);        // POST /api/receipts/review
+        _model = await Api.ReviewAsync(e.File);
         _rows = _model.Lines.Select(l => new RowVm(l)).ToList();
         _busy = false;
     }
@@ -60,27 +80,41 @@ else
         var req = new ConfirmRequest(
             _model!.StoreName, _model.PurchasedAt, _model.Total,
             _rows.Select(r => r.ToConfirmLine()).ToList());
-        await Api.ConfirmAsync(req);                    // POST /api/receipts/confirm
+        var receiptId = await Api.ConfirmAsync(req);
         _busy = false;
-        _model = null;                                 // reset
+        Nav.NavigateTo($"/budget/{receiptId}");   // → next: budget page
     }
 
-    class RowVm(ReviewLine l)
+    class RowVm
     {
-        public string RawText => l.RawText;
-        public decimal Price => l.Price;
-        public int Quantity => l.Quantity;
-        public int? SuggestedProductId => l.SuggestedProductId;
-        public List<BrandOption> BrandOptions => l.BrandOptions;
+        readonly ReviewLine _l;
+        public RowVm(ReviewLine l)
+        {
+            _l = l;
+            IsMatched = l.MatchedProductId is not null;
+            SelectedCandidate = l.Candidates
+                .FirstOrDefault(c => c.ProductId == l.MatchedProductId) ?? l.Candidates.FirstOrDefault();
+        }
 
-        public string ProductName { get; set; } = l.SuggestedName;
+        public string RawText => _l.RawText;
+        public decimal Price => _l.Price;
+        public int Quantity => _l.Quantity;
+        public List<ProductCandidate> Candidates => _l.Candidates;
+        public List<BrandOption> BrandOptions => _l.BrandOptions;
+
+        public bool IsMatched { get; set; }
+        public ProductCandidate? SelectedCandidate { get; set; }
         public int? SelectedBrandId { get; set; }
         public string? NewBrandName { get; set; }
-        public bool CreateNew { get; set; } = l.SuggestedProductId is null;
+
+        public string SelectedName => SelectedCandidate?.Name ?? RawText;
+
+        public void Select(ProductCandidate c) => SelectedCandidate = c;
 
         public ConfirmLine ToConfirmLine() => new(
             RawText, Price, Quantity,
-            CreateNew ? null : SuggestedProductId,
-            ProductName, SelectedBrandId, NewBrandName);
+            SelectedCandidate?.ProductId,
+            SelectedCandidate?.Name ?? RawText,
+            SelectedBrandId, NewBrandName);
     }
 }
