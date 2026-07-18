@@ -7,27 +7,72 @@
 
 @if (_model is null)
 {
+    <p class="review-help">
+        Upload a receipt. The app reads the store name, matches each item against learned store names first,
+        then uses the OpenFoodFacts catalog and images for confirmation.
+    </p>
     <InputFile OnChange="OnFile" accept="image/*" />
-    @if (_busy) { <p>Scanning…</p> }
+    @if (_busy)
+    {
+        <p>Scanning receipt, matching store items, and loading product images…</p>
+    }
 }
 else
 {
-    <p><b>@_model.StoreName</b> — @_model.PurchasedAt.ToString("d") — Total @_model.Total</p>
+    <section class="receipt-summary">
+        <div>
+            <div class="label">Store</div>
+            <strong>@_model.StoreName</strong>
+        </div>
+        <div>
+            <div class="label">Date</div>
+            <strong>@_model.PurchasedAt.ToString("d")</strong>
+        </div>
+        <div>
+            <div class="label">Total</div>
+            <strong>@_model.Total.ToString("C")</strong>
+        </div>
+    </section>
+
+    <p class="review-help">
+        Confirmed lines save the receipt name under <b>@_model.StoreName</b>, so future scans match this store's
+        wording faster. Prices are saved for this store and date.
+    </p>
 
     @foreach (var row in _rows)
     {
         <div class="review-row">
-            <div class="raw">@row.RawText — @row.Price @(row.Quantity > 1 ? $"×{row.Quantity}" : "")</div>
+            <div class="raw">
+                <span>@row.RawText</span>
+                <strong>@row.Price.ToString("C") @(row.Quantity > 1 ? $"×{row.Quantity}" : "")</strong>
+            </div>
 
             @if (row.IsMatched)
             {
-                @* MATCHED → just listed *@
-                <div class="matched">✔ @row.SelectedName</div>
-                <button class="link" @onclick="() => row.IsMatched = false">change</button>
+                @* MATCHED → show the selected product image too *@
+                <div class="matched-product">
+                    <div class="matched-image">
+                        @if (!string.IsNullOrWhiteSpace(row.SelectedCandidate?.ImageUrl))
+                        {
+                            <img src="@row.SelectedCandidate.ImageUrl" alt="@row.SelectedName" />
+                        }
+                        else
+                        {
+                            <div class="image-placeholder">No image</div>
+                        }
+                    </div>
+                    <div>
+                        <div class="matched">✔ Matched</div>
+                        <div class="matched-name">@row.SelectedName</div>
+                        <div class="hint">Will save as a @(_model.StoreName) store item on confirmation.</div>
+                        <button class="link" @onclick="() => row.IsMatched = false">Change match</button>
+                    </div>
+                </div>
             }
             else
             {
                 @* UNMATCHED → sliding gallery of candidates *@
+                <div class="hint">Choose the right product image/name, or keep the new item card.</div>
                 <div class="gallery">
                     @foreach (var c in row.Candidates)
                     {
@@ -36,6 +81,10 @@ else
                             @if (!string.IsNullOrEmpty(c.ImageUrl))
                             {
                                 <img src="@c.ImageUrl" alt="@c.Name" />
+                            }
+                            else
+                            {
+                                <div class="image-placeholder">No image</div>
                             }
                             <div class="name">@(c.ProductId is null ? $"+ New: {c.Name}" : c.Name)</div>
                         </div>

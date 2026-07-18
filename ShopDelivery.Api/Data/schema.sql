@@ -72,7 +72,7 @@ CREATE TABLE [PriceObservations] (
     [Quantity] int NOT NULL,
     CONSTRAINT [PK_PriceObservations] PRIMARY KEY ([Id]),
     CONSTRAINT [FK_PriceObservations_Products_ProductId] FOREIGN KEY ([ProductId]) REFERENCES [Products] ([Id]) ON DELETE CASCADE,
-    CONSTRAINT [FK_PriceObservations_StoreProducts_StoreProductId] FOREIGN KEY ([StoreProductId]) REFERENCES [StoreProducts] ([Id]) ON DELETE SET NULL,
+    CONSTRAINT [FK_PriceObservations_StoreProducts_StoreProductId] FOREIGN KEY ([StoreProductId]) REFERENCES [StoreProducts] ([Id]) ON DELETE NO ACTION,
     CONSTRAINT [FK_PriceObservations_Receipts_ReceiptId] FOREIGN KEY ([ReceiptId]) REFERENCES [Receipts] ([Id]) ON DELETE CASCADE
 );
 GO
@@ -85,7 +85,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_PriceObservation
    AND COL_LENGTH(N'PriceObservations', N'StoreProductId') IS NOT NULL
 ALTER TABLE [PriceObservations]
 ADD CONSTRAINT [FK_PriceObservations_StoreProducts_StoreProductId]
-FOREIGN KEY ([StoreProductId]) REFERENCES [StoreProducts] ([Id]) ON DELETE SET NULL;
+FOREIGN KEY ([StoreProductId]) REFERENCES [StoreProducts] ([Id]) ON DELETE NO ACTION;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PriceObservations_ProductId')

@@ -54,7 +54,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_PriceObservation
 BEGIN
     ALTER TABLE [PriceObservations]
     ADD CONSTRAINT [FK_PriceObservations_StoreProducts_StoreProductId]
-    FOREIGN KEY ([StoreProductId]) REFERENCES [StoreProducts] ([Id]) ON DELETE SET NULL;
+    FOREIGN KEY ([StoreProductId]) REFERENCES [StoreProducts] ([Id]) ON DELETE NO ACTION;
 END;
 """, ct);
 

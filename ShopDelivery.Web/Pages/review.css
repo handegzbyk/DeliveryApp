@@ -1,6 +1,119 @@
-.gallery { display:flex; gap:.5rem; overflow-x:auto; padding:.5rem 0; scroll-snap-type:x mandatory; }
-.card { flex:0 0 120px; scroll-snap-align:start; border:2px solid transparent; border-radius:8px; padding:.5rem; cursor:pointer; text-align:center; }
-.card.selected { border-color:#2d7; }
-.card img { width:100%; height:80px; object-fit:contain; }
-.chip { border:1px solid #ccc; border-radius:16px; padding:.2rem .6rem; margin:.15rem; }
-.chip.selected { background:#2d7; color:#fff; }
+.review-help {
+    color: #555;
+    max-width: 760px;
+}
+
+.receipt-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.receipt-summary > div {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    min-width: 140px;
+    padding: .75rem 1rem;
+}
+
+.label {
+    color: #666;
+    font-size: .8rem;
+    text-transform: uppercase;
+}
+
+.review-row {
+    border-top: 1px solid #eee;
+    padding: 1rem 0;
+}
+
+.raw {
+    align-items: baseline;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: .5rem;
+}
+
+.matched-product {
+    align-items: center;
+    display: flex;
+    gap: .75rem;
+}
+
+.matched-image {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    display: grid;
+    flex: 0 0 96px;
+    height: 96px;
+    place-items: center;
+    width: 96px;
+}
+
+.matched-image img,
+.card img {
+    height: 80px;
+    object-fit: contain;
+    width: 100%;
+}
+
+.matched {
+    color: #148a45;
+    font-weight: 700;
+}
+
+.matched-name {
+    font-weight: 700;
+}
+
+.hint {
+    color: #666;
+    font-size: .9rem;
+}
+
+.gallery {
+    display: flex;
+    gap: .5rem;
+    overflow-x: auto;
+    padding: .5rem 0;
+    scroll-snap-type: x mandatory;
+}
+
+.card {
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    flex: 0 0 140px;
+    padding: .5rem;
+    scroll-snap-align: start;
+    text-align: center;
+}
+
+.card.selected {
+    border-color: #2d7;
+}
+
+.image-placeholder {
+    align-items: center;
+    background: #f4f4f4;
+    border-radius: 8px;
+    color: #777;
+    display: flex;
+    font-size: .85rem;
+    height: 80px;
+    justify-content: center;
+}
+
+.chip {
+    border: 1px solid #ccc;
+    border-radius: 16px;
+    margin: .15rem;
+    padding: .2rem .6rem;
+}
+
+.chip.selected {
+    background: #2d7;
+    color: #fff;
+}

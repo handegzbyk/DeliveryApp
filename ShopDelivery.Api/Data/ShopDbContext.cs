@@ -35,6 +35,6 @@ public sealed class ShopDbContext : DbContext
             .HasOne(observation => observation.StoreProduct)
             .WithMany(storeProduct => storeProduct.PriceObservations)
             .HasForeignKey(observation => observation.StoreProductId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
