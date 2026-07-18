@@ -44,7 +44,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<ProductMatcher>();
 builder.Services.AddSingleton<IEnrichmentQueue, EnrichmentQueue>();
 builder.Services.AddHostedService<EnrichmentWorker>();
-builder.Services.AddHttpClient<IProductEnricher, OpenFoodFactsEnricher>();
+builder.Services.AddHttpClient<IProductEnricher, OpenFoodFactsEnricher>(http =>
+{
+    // OpenFoodFacts requires a descriptive User-Agent; anonymous callers get rate-limited/503'd.
+    http.BaseAddress = new Uri("https://world.openfoodfacts.org");
+    http.DefaultRequestHeaders.UserAgent.ParseAdd("ShopDelivery/1.0 (+https://github.com/DeliveryApp)");
+    http.Timeout = TimeSpan.FromSeconds(10);
+});
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
