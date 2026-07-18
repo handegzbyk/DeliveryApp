@@ -10,4 +10,5 @@ public record ProductInfo(
 public interface IProductEnricher
 {
     Task<ProductInfo?> EnrichAsync(string query, CancellationToken ct);
+    Task<IReadOnlyList<ProductInfo>> SearchAsync(string query, int maxResults, CancellationToken ct);
 }

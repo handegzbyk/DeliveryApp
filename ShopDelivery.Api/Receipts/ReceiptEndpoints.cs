@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;   // ToListAsync, FirstOrDefaultAsync, Firs
 using ShopDelivery.Ai;
 using ShopDelivery.Api.Data;
 using ShopDelivery.Api.Enrichment;
+using ShopDelivery.Api.Products;
 using ShopDelivery.Shared;       // review DTOs (ConfirmRequest, ReviewLine, …)
 // NOTE: the persisted entities (Store, Product, Brand, Receipt, PriceObservation) live in the
 // global namespace (Data/Entities.cs), so they are referenced unqualified below.
@@ -26,7 +27,12 @@ public static class ReceiptEndpoints
 
         // NEW: build review model from OCR result + suggestions
         app.MapPost("/api/receipts/review", async (
-                IFormFile file, ReceiptExtractor extractor, ProductMatcher matcher, ShopDbContext db, CancellationToken ct) =>
+                IFormFile file,
+                ReceiptExtractor extractor,
+                ProductMatcher matcher,
+                ProductCandidateSeeder productSeeder,
+                ShopDbContext db,
+                CancellationToken ct) =>
             {
                 if (file.Length == 0) return Results.BadRequest("Empty file.");
 
@@ -41,6 +47,12 @@ public static class ReceiptEndpoints
                 foreach (var scannedLine in scan.Lines)
                 {
                     var (matchedId, candidates) = await matcher.TopMatchesAsync(scannedLine.Description, storeName, ct);
+                    if (matchedId is null)
+                    {
+                        await productSeeder.SeedFromReceiptLineAsync(scannedLine.Description, ct);
+                        (matchedId, candidates) = await matcher.TopMatchesAsync(scannedLine.Description, storeName, ct);
+                    }
+
                     lines.Add(new ReviewLine(scannedLine.Description, scannedLine.Price ?? 0m, scannedLine.Quantity ?? 1,
                         matchedId, candidates, brandOptions));
                 }

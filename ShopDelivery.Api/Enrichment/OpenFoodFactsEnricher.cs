@@ -10,10 +10,17 @@ public class OpenFoodFactsEnricher(HttpClient http, ILogger<OpenFoodFactsEnriche
 
     public async Task<ProductInfo?> EnrichAsync(string query, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(query))
-            return null;
+        var products = await SearchAsync(query, 1, ct);
+        return products.FirstOrDefault();
+    }
 
-        var url = $"/cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&json=1&page_size=1";
+    public async Task<IReadOnlyList<ProductInfo>> SearchAsync(string query, int maxResults, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        var pageSize = Math.Clamp(maxResults, 1, 20);
+        var url = $"/cgi/search.pl?search_terms={Uri.EscapeDataString(query)}&json=1&page_size={pageSize}";
 
         for (var attempt = 1; ; attempt++)
         {
@@ -21,8 +28,10 @@ public class OpenFoodFactsEnricher(HttpClient http, ILogger<OpenFoodFactsEnriche
             if (response.IsSuccessStatusCode)
             {
                 var search = await response.Content.ReadFromJsonAsync<OffSearchResponse>(ct);
-                var first = search?.Products?.FirstOrDefault();
-                return first is null ? null : Map(first);
+                return search?.Products?
+                    .Select(Map)
+                    .Where(product => !string.IsNullOrWhiteSpace(product.CanonicalName))
+                    .ToList() ?? [];
             }
 
             // Retry transient failures (rate-limit / temporary outage) with a short backoff.
@@ -37,7 +46,7 @@ public class OpenFoodFactsEnricher(HttpClient http, ILogger<OpenFoodFactsEnriche
             // Non-transient or out of attempts — leave the product un-enriched; it can be retried later.
             logger.LogInformation("OpenFoodFacts gave up on '{Query}' after {Attempt} attempt(s): {Status}",
                 query, attempt, (int)response.StatusCode);
-            return null;
+            return [];
         }
     }
 
