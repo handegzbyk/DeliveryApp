@@ -16,6 +16,13 @@ public sealed class ShopApiClient(HttpClient http)
         return (await response.Content.ReadFromJsonAsync<ProductSummary>(cancellationToken: ct))!;
     }
 
+    public async Task<ProductSeedResponse> SeedProductCatalogAsync(CancellationToken ct = default)
+    {
+        var response = await http.PostAsJsonAsync("api/products/seed", new ProductSeedRequest(), ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ProductSeedResponse>(cancellationToken: ct))!;
+    }
+
     public async Task<ScannedReceipt?> ScanReceiptAsync(
         Stream image, string fileName, CancellationToken ct = default)
     {

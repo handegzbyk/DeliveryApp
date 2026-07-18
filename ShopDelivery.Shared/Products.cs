@@ -14,3 +14,15 @@ public record ProductImportRequest(
     string? StoreName = null,
     string? StoreProductName = null,
     string? StoreProductCode = null);
+
+public record ProductSeedRequest(
+    List<string>? Categories = null,
+    string Country = "Germany",
+    int PageSize = 25,
+    int MaxPagesPerCategory = 1);
+
+public record ProductSeedResponse(
+    int Created,
+    int Updated,
+    int Skipped,
+    List<string> Categories);

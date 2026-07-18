@@ -9,11 +9,17 @@
 <div class="product-import">
     <input @bind="_query" @bind:event="oninput" placeholder="Search OpenFoodFacts, e.g. oat milk" />
     <button class="primary" @onclick="ImportProduct" disabled="@_busy">Import from API</button>
+    <button @onclick="SeedCatalog" disabled="@_busy">Seed starter catalog</button>
 </div>
 
 @if (_error is not null)
 {
     <p class="error" role="alert">@_error</p>
+}
+
+@if (_message is not null)
+{
+    <p>@_message</p>
 }
 
 @if (_busy)
@@ -59,6 +65,7 @@ else
     private List<ProductSummary> _products = [];
     private string? _query;
     private string? _error;
+    private string? _message;
     private bool _busy;
 
     protected override async Task OnInitializedAsync() => await LoadProducts();
@@ -66,6 +73,7 @@ else
     private async Task LoadProducts()
     {
         _error = null;
+        _message = null;
         _busy = true;
 
         try
@@ -88,6 +96,7 @@ else
             return;
 
         _error = null;
+        _message = null;
         _busy = true;
 
         try
@@ -99,6 +108,28 @@ else
         catch (Exception ex)
         {
             _error = $"Couldn't import product: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SeedCatalog()
+    {
+        _error = null;
+        _message = null;
+        _busy = true;
+
+        try
+        {
+            var result = await Api.SeedProductCatalogAsync();
+            _message = $"Seeded catalog: {result.Created} created, {result.Updated} updated, {result.Skipped} already present.";
+            _products = (await Api.GetProductsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't seed catalog: {ex.Message}";
         }
         finally
         {

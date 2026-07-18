@@ -102,6 +102,16 @@ public static class ProductEndpoints
                 : Results.Ok(result);
         })
         .WithName("ImportProduct");
+
+        group.MapPost("/seed", async (
+            ProductSeedRequest request,
+            ProductCatalogSeeder seeder,
+            CancellationToken ct) =>
+        {
+            var result = await seeder.SeedAsync(request, ct);
+            return Results.Ok(result);
+        })
+        .WithName("SeedProductCatalog");
     }
 
     private static async Task<ProductEntity?> FindProductAsync(

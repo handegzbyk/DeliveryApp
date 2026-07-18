@@ -44,6 +44,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<ProductMatcher>();
 builder.Services.AddScoped<ProductCandidateSeeder>();
+builder.Services.AddScoped<ProductCatalogSeeder>();
 builder.Services.AddSingleton<IEnrichmentQueue, EnrichmentQueue>();
 builder.Services.AddHostedService<EnrichmentWorker>();
 builder.Services.AddHttpClient<IProductEnricher, OpenFoodFactsEnricher>(http =>
