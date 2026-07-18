@@ -24,7 +24,7 @@ public static class ReceiptEndpoints
         .DisableAntiforgery()
         .WithName("ScanReceipt");
 
-       // NEW: build review model from OCR result + suggestions
+        // NEW: build review model from OCR result + suggestions
         app.MapPost("/api/receipts/review", async (
                 IFormFile file, ReceiptExtractor extractor, ProductMatcher matcher, ShopDbContext db, CancellationToken ct) =>
             {
@@ -33,19 +33,20 @@ public static class ReceiptEndpoints
                 await using var stream = file.OpenReadStream();
                 var scan = await extractor.ExtractAsync(stream, ct);
                 var brands = await db.Brands.ToListAsync(ct);
-                var brandOptions = brands.Select(b => new BrandOption(b.Id, b.Name))
+                var brandOptions = brands.Select(brand => new BrandOption(brand.Id, brand.Name))
                                         .Prepend(new BrandOption(null, "— no brand —")).ToList();
+                var storeName = scan.MerchantName ?? "Unknown store";
 
                 var lines = new List<ReviewLine>();
-                foreach (var l in scan.Lines)
+                foreach (var scannedLine in scan.Lines)
                 {
-                   var (matchedId, candidates) = await matcher.TopMatchesAsync(l.Description, ct);
-                    lines.Add(new ReviewLine(l.Description, l.Price ?? 0m, l.Quantity ?? 1,
+                    var (matchedId, candidates) = await matcher.TopMatchesAsync(scannedLine.Description, storeName, ct);
+                    lines.Add(new ReviewLine(scannedLine.Description, scannedLine.Price ?? 0m, scannedLine.Quantity ?? 1,
                         matchedId, candidates, brandOptions));
                 }
 
                 return Results.Ok(new ScanReviewResponse(
-                    scan.MerchantName ?? "Unknown store",
+                    storeName,
                     scan.PurchasedOn is { } d ? new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : DateTimeOffset.UtcNow,
                     scan.Total ?? 0m,
                     lines));
@@ -62,7 +63,7 @@ public static class ReceiptEndpoints
                 // Store: reuse by name (case-insensitive) or create.
                 var storeName = string.IsNullOrWhiteSpace(req.StoreName) ? "Unknown store" : req.StoreName.Trim();
                 var store = await db.Stores
-                    .FirstOrDefaultAsync(s => s.Name.ToLower() == storeName.ToLower(), ct);
+                    .FirstOrDefaultAsync(store => store.Name.ToLower() == storeName.ToLower(), ct);
                 store ??= new Store { Name = storeName };
 
                 var receipt = new Receipt
@@ -75,6 +76,7 @@ public static class ReceiptEndpoints
 
                 // Cache brands created within this request so repeated names don't duplicate.
                 var newBrands = new Dictionary<string, Brand>(StringComparer.OrdinalIgnoreCase);
+                var storeProductAliases = new Dictionary<string, StoreProduct>(StringComparer.OrdinalIgnoreCase);
                 var createdProducts = new List<Product>();
 
                 foreach (var line in req.Lines)
@@ -83,7 +85,7 @@ public static class ReceiptEndpoints
                     if (line.ProductId is { } existingId)
                     {
                         // Existing product picked in review.
-                        product = await db.Products.FirstAsync(p => p.Id == existingId, ct);
+                        product = await db.Products.FirstAsync(product => product.Id == existingId, ct);
                     }
                     else
                     {
@@ -98,9 +100,11 @@ public static class ReceiptEndpoints
                         createdProducts.Add(product);
                     }
 
+                    var storeProduct = await ResolveStoreProductAsync(line, store, product, db, storeProductAliases, ct);
                     receipt.Lines.Add(new PriceObservation
                     {
                         Product = product,
+                        StoreProduct = storeProduct,
                         RawText = line.RawText,
                         Price = line.Price,
                         Quantity = line.Quantity <= 0 ? 1 : line.Quantity,
@@ -110,8 +114,8 @@ public static class ReceiptEndpoints
                 await db.SaveChangesAsync(ct);
 
                 // Fire-and-forget enrichment for the products we just created (ids now assigned).
-                foreach (var p in createdProducts)
-                    await queue.EnqueueAsync(p.Id, ct);
+                foreach (var createdProduct in createdProducts)
+                    await queue.EnqueueAsync(createdProduct.Id, ct);
 
                 return Results.Ok(new { receipt.Id });
             })
@@ -123,7 +127,7 @@ public static class ReceiptEndpoints
         ConfirmLine line, ShopDbContext db, Dictionary<string, Brand> newBrands, CancellationToken ct)
     {
         if (line.BrandId is { } brandId)
-            return await db.Brands.FirstOrDefaultAsync(b => b.Id == brandId, ct);
+            return await db.Brands.FirstOrDefaultAsync(brand => brand.Id == brandId, ct);
 
         if (string.IsNullOrWhiteSpace(line.NewBrandName))
             return null;
@@ -132,9 +136,56 @@ public static class ReceiptEndpoints
         if (newBrands.TryGetValue(name, out var cached))
             return cached;
 
-        var brand = await db.Brands.FirstOrDefaultAsync(b => b.Name.ToLower() == name.ToLower(), ct)
+        var brand = await db.Brands.FirstOrDefaultAsync(brand => brand.Name.ToLower() == name.ToLower(), ct)
                     ?? new Brand { Name = name };
         newBrands[name] = brand;
         return brand;
+    }
+
+    // Learn the store-specific receipt/catalog name for the confirmed canonical product.
+    private static async Task<StoreProduct> ResolveStoreProductAsync(
+        ConfirmLine line,
+        Store store,
+        Product product,
+        ShopDbContext db,
+        Dictionary<string, StoreProduct> storeProductAliases,
+        CancellationToken ct)
+    {
+        var aliasName = string.IsNullOrWhiteSpace(line.RawText)
+            ? (string.IsNullOrWhiteSpace(line.ProductName) ? product.Name : line.ProductName.Trim())
+            : line.RawText.Trim();
+
+        if (storeProductAliases.TryGetValue(aliasName, out var cached))
+        {
+            cached.Product = product;
+            return cached;
+        }
+
+        StoreProduct? storeProduct = null;
+        if (store.Id > 0)
+        {
+            var normalizedAliasName = aliasName.ToLower();
+            storeProduct = await db.StoreProducts.FirstOrDefaultAsync(
+                alias => alias.StoreId == store.Id && alias.Name.ToLower() == normalizedAliasName,
+                ct);
+        }
+
+        if (storeProduct is null)
+        {
+            storeProduct = new StoreProduct
+            {
+                Store = store,
+                Product = product,
+                Name = aliasName,
+            };
+            db.StoreProducts.Add(storeProduct);
+        }
+        else
+        {
+            storeProduct.Product = product;
+        }
+
+        storeProductAliases[aliasName] = storeProduct;
+        return storeProduct;
     }
 }

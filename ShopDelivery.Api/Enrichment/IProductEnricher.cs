@@ -1,6 +1,7 @@
 namespace ShopDelivery.Api.Enrichment;
 
 public record ProductInfo(
+    string? ExternalId,
     string? CanonicalName,
     string? BrandName,
     string? Category,

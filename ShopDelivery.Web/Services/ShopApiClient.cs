@@ -6,6 +6,16 @@ namespace ShopDelivery.Web.Services;
 
 public sealed class ShopApiClient(HttpClient http)
 {
+    public async Task<IReadOnlyList<ProductSummary>> GetProductsAsync(CancellationToken ct = default) =>
+        await http.GetFromJsonAsync<List<ProductSummary>>("api/products", ct) ?? [];
+
+    public async Task<ProductSummary> ImportProductAsync(string query, CancellationToken ct = default)
+    {
+        var response = await http.PostAsJsonAsync("api/products/import", new ProductImportRequest(query), ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ProductSummary>(cancellationToken: ct))!;
+    }
+
     public async Task<ScannedReceipt?> ScanReceiptAsync(
         Stream image, string fileName, CancellationToken ct = default)
     {
@@ -18,7 +28,8 @@ public sealed class ShopApiClient(HttpClient http)
 
         return await response.Content.ReadFromJsonAsync<ScannedReceipt>(ct);
     }
-        public async Task<ScanReviewResponse> ReviewAsync(IBrowserFile file, CancellationToken ct = default)
+
+    public async Task<ScanReviewResponse> ReviewAsync(IBrowserFile file, CancellationToken ct = default)
     {
         using var content = new MultipartFormDataContent();
         using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024, ct); // 10 MB cap

@@ -49,14 +49,15 @@ public class OpenFoodFactsEnricher(HttpClient http, ILogger<OpenFoodFactsEnriche
              or HttpStatusCode.ServiceUnavailable      // 503
              or HttpStatusCode.GatewayTimeout;         // 504
 
-    private static ProductInfo Map(OffProduct p) => new(
-        p.ProductName, p.Brands, p.Categories, p.ImageUrl);
+    private static ProductInfo Map(OffProduct product) => new(
+        product.Code, product.ProductName, product.Brands, product.Categories, product.ImageUrl);
 
     private record OffSearchResponse(
         [property: JsonPropertyName("products")] List<OffProduct>? Products);
 
     // OpenFoodFacts serializes fields in snake_case; map them explicitly.
     private record OffProduct(
+        [property: JsonPropertyName("code")] string? Code,
         [property: JsonPropertyName("product_name")] string? ProductName,
         [property: JsonPropertyName("brands")] string? Brands,
         [property: JsonPropertyName("categories")] string? Categories,

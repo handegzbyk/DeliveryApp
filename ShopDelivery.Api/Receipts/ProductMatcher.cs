@@ -10,14 +10,51 @@ public class ProductMatcher(ShopDbContext db)
     private const int MaxCandidates = 8;
 
     public async Task<(int? matchedId, List<ProductCandidate> candidates)> TopMatchesAsync(
-        string rawText, CancellationToken ct)
+        string rawText, string? storeName, CancellationToken ct)
     {
-        var products = await db.Products.ToListAsync(ct);
+        var normalizedRawText = Normalize(rawText);
+        var candidatesByProduct = new Dictionary<int, ProductCandidate>();
 
-        var norm = Normalize(rawText);
-        var ranked = products
-            .Select(p => new ProductCandidate(p.Id, p.Name, p.ImageUrl, Similarity(norm, Normalize(p.Name))))
-            .OrderByDescending(c => c.Score)
+        if (!string.IsNullOrWhiteSpace(storeName))
+        {
+            var normalizedStoreName = storeName.Trim().ToLower();
+            var storeAliases = await db.StoreProducts
+                .AsNoTracking()
+                .Where(alias => alias.Store.Name.ToLower() == normalizedStoreName)
+                .Select(alias => new
+                {
+                    alias.Name,
+                    alias.ProductId,
+                    ProductName = alias.Product.Name,
+                    alias.Product.ImageUrl,
+                })
+                .ToListAsync(ct);
+
+            foreach (var alias in storeAliases)
+            {
+                var score = Math.Min(1, Similarity(normalizedRawText, Normalize(alias.Name)) + 0.1);
+                KeepBestCandidate(
+                    candidatesByProduct,
+                    alias.ProductId,
+                    alias.ProductName,
+                    alias.ImageUrl,
+                    score);
+            }
+        }
+
+        var products = await db.Products.AsNoTracking().ToListAsync(ct);
+        foreach (var product in products)
+        {
+            KeepBestCandidate(
+                candidatesByProduct,
+                product.Id,
+                product.Name,
+                product.ImageUrl,
+                Similarity(normalizedRawText, Normalize(product.Name)));
+        }
+
+        var ranked = candidatesByProduct.Values
+            .OrderByDescending(candidate => candidate.Score)
             .Take(MaxCandidates)
             .ToList();
 
@@ -30,17 +67,34 @@ public class ProductMatcher(ShopDbContext db)
         return (matchedId, ranked);
     }
 
-    private static string Normalize(string s) =>
-        new string(s.ToLowerInvariant().Where(c => char.IsLetterOrDigit(c) || c == ' ').ToArray()).Trim();
+    public Task<(int? matchedId, List<ProductCandidate> candidates)> TopMatchesAsync(
+        string rawText, CancellationToken ct) =>
+        TopMatchesAsync(rawText, null, ct);
 
-    private static double Similarity(string a, string b)
+    private static void KeepBestCandidate(
+        Dictionary<int, ProductCandidate> candidatesByProduct,
+        int productId,
+        string productName,
+        string? imageUrl,
+        double score)
     {
-        var ta = a.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-        var tb = b.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-        if (ta.Count == 0 || tb.Count == 0) return 0;
-        return (double)ta.Intersect(tb).Count() / ta.Union(tb).Count();
+        if (candidatesByProduct.TryGetValue(productId, out var existing) && existing.Score >= score)
+            return;
+
+        candidatesByProduct[productId] = new ProductCandidate(productId, productName, imageUrl, score);
     }
 
-    private static string TitleCase(string s) =>
-        System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.ToLowerInvariant());
+    private static string Normalize(string value) =>
+        new string(value.ToLowerInvariant().Where(character => char.IsLetterOrDigit(character) || character == ' ').ToArray()).Trim();
+
+    private static double Similarity(string left, string right)
+    {
+        var leftTokens = left.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        var rightTokens = right.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        if (leftTokens.Count == 0 || rightTokens.Count == 0) return 0;
+        return (double)leftTokens.Intersect(rightTokens).Count() / leftTokens.Union(rightTokens).Count();
+    }
+
+    private static string TitleCase(string value) =>
+        System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.ToLowerInvariant());
 }

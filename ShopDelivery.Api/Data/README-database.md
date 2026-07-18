@@ -1,9 +1,10 @@
 # Recreating the database in Azure SQL
 
 The API builds its schema from the EF Core model in `ShopDbContext`. There are **no EF
-migrations** — on startup `Program.cs` calls `db.Database.EnsureCreated()`, which creates the
-tables **only if the target database already exists but is empty**. It does not (reliably)
-create the Azure SQL *database* itself. So recreating after a `DROP DATABASE` is two steps:
+migrations** — on startup `Program.cs` calls `DatabaseSchemaInitializer.EnsureAsync()`, which
+uses `EnsureCreated()` for empty databases and then applies small idempotent schema updates for
+existing databases. It does not create the Azure SQL *database* itself. So recreating after a
+`DROP DATABASE` is two steps:
 **(1) create an empty database, then (2) create the tables.**
 
 ## Step 1 — Recreate the empty database
@@ -28,6 +29,15 @@ The script is guarded with `IF OBJECT_ID(...) IS NULL`, so it is safe to re-run.
 **B. Let the app build it via `EnsureCreated()`.**
 Point the `Sql` connection string at the new (empty) database and start the API — it will
 create every table on the empty database automatically.
+
+## Product domain
+
+- `Products` are canonical products. The initial catalog comes from OpenFoodFacts, keyed when
+  available by `OpenFoodFactsCode`.
+- `StoreProducts` are store-specific aliases/SKUs for canonical products. Receipt names can
+  differ between stores while still pointing to one product.
+- `PriceObservations` are the historical price facts from confirmed receipts. They link to the
+  canonical product, receipt/store, and the learned store-specific alias when available.
 
 ## Setting the `Sql` connection string
 

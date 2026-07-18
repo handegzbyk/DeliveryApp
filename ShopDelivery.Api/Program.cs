@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ShopDelivery.Ai;
 using ShopDelivery.Api.Data;
 using ShopDelivery.Api.Enrichment;
+using ShopDelivery.Api.Products;
 using ShopDelivery.Api.Receipts;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,7 +57,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ShopDbContext>();
-    db.Database.EnsureCreated();
+    await DatabaseSchemaInitializer.EnsureAsync(db);
 }
 
 if (app.Environment.IsDevelopment())
@@ -69,6 +70,7 @@ app.UseCors();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", at = DateTimeOffset.UtcNow }))
    .WithName("HealthCheck");
 
+app.MapProductEndpoints();
 app.MapReceiptEndpoints();
 
 app.Run();

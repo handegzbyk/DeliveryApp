@@ -58,6 +58,7 @@ public class EnrichmentWorker(
         }
 
         // Fill only missing fields; don't overwrite user-entered values.
+        product.OpenFoodFactsCode ??= info.ExternalId;
         product.ImageUrl ??= info.ImageUrl;
         product.Category ??= info.Category;
         if (string.IsNullOrWhiteSpace(product.Name) && !string.IsNullOrWhiteSpace(info.CanonicalName))
