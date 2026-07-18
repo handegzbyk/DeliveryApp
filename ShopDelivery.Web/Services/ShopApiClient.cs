@@ -55,5 +55,8 @@ public sealed class ShopApiClient(HttpClient http)
         return result!.Id;
     }
 
+    public async Task<BasketExpenseResponse> GetReceiptExpenseAsync(int receiptId, CancellationToken ct = default) =>
+        (await http.GetFromJsonAsync<BasketExpenseResponse>($"api/receipts/{receiptId}/expense", ct))!;
+
     private record ConfirmResult(int Id);
 }

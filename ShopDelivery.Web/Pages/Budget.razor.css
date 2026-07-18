@@ -1,0 +1,132 @@
+.budget-hero {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin: 1rem 0;
+}
+
+.budget-hero > div,
+.dashboard-grid > article {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.budget-hero h2 {
+    margin: 0;
+}
+
+.label {
+    color: #666;
+    font-size: .8rem;
+    text-transform: uppercase;
+}
+
+.over-budget {
+    color: #b32121;
+}
+
+.budget-progress {
+    margin: 1rem 0 1.5rem;
+}
+
+.progress-label {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.progress-track {
+    background: #eee;
+    border-radius: 999px;
+    height: 14px;
+    margin-top: .35rem;
+    overflow: hidden;
+}
+
+.progress-track.small {
+    height: 8px;
+}
+
+.progress-fill {
+    background: #2d7;
+    height: 100%;
+}
+
+.dashboard-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+}
+
+.expense-line {
+    align-items: center;
+    border-top: 1px solid #eee;
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    padding: .75rem 0;
+}
+
+.line-image {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    display: grid;
+    height: 72px;
+    place-items: center;
+    width: 72px;
+}
+
+.line-image img {
+    height: 60px;
+    object-fit: contain;
+    width: 100%;
+}
+
+.image-placeholder {
+    align-items: center;
+    background: #f4f4f4;
+    border-radius: 8px;
+    color: #777;
+    display: flex;
+    font-size: .75rem;
+    height: 60px;
+    justify-content: center;
+    text-align: center;
+    width: 60px;
+}
+
+.hint {
+    color: #666;
+    font-size: .9rem;
+}
+
+.line-price {
+    font-weight: 700;
+    text-align: right;
+}
+
+.line-price span {
+    color: #666;
+    display: block;
+    font-size: .85rem;
+}
+
+.breakdown-row {
+    margin: .75rem 0;
+}
+
+@media (max-width: 760px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .expense-line {
+        grid-template-columns: 64px minmax(0, 1fr);
+    }
+
+    .line-price {
+        grid-column: 2;
+        text-align: left;
+    }
+}

@@ -1,0 +1,159 @@
+@page "/budget/{ReceiptId:int}"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Budget Dashboard</PageTitle>
+
+<h1>Budget dashboard</h1>
+
+@if (_busy)
+{
+    <p><em>Loading basket expense…</em></p>
+}
+else if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+    <button @onclick="ScanAnotherReceipt">Scan another receipt</button>
+}
+else if (_expense is not null)
+{
+    <section class="budget-hero">
+        <div>
+            <div class="label">Confirmed basket</div>
+            <h2>@_expense.StoreName</h2>
+            <p>@_expense.PurchasedAt.ToString("d")</p>
+        </div>
+        <div>
+            <div class="label">Receipt total</div>
+            <strong>@_expense.Total.ToString("C")</strong>
+        </div>
+        <div>
+            <div class="label">Month spend</div>
+            <strong>@_expense.Dashboard.Spent.ToString("C")</strong>
+        </div>
+        <div>
+            <div class="label">Remaining budget</div>
+            <strong class="@(_expense.Dashboard.Remaining < 0 ? "over-budget" : "")">
+                @_expense.Dashboard.Remaining.ToString("C")
+            </strong>
+        </div>
+    </section>
+
+    <section class="budget-progress">
+        <div class="progress-label">
+            <span>@_expense.Dashboard.PeriodStart.ToString("MMMM yyyy")</span>
+            <span>@_expense.Dashboard.MonthlyBudget.ToString("C") budget</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" style="width:@BudgetPercent%"></div>
+        </div>
+    </section>
+
+    <section class="dashboard-grid">
+        <article>
+            <h2>Basket items</h2>
+            @foreach (var line in _expense.Lines)
+            {
+                <div class="expense-line">
+                    <div class="line-image">
+                        @if (!string.IsNullOrWhiteSpace(line.ImageUrl))
+                        {
+                            <img src="@line.ImageUrl" alt="@line.ProductName" />
+                        }
+                        else
+                        {
+                            <div class="image-placeholder">No image</div>
+                        }
+                    </div>
+                    <div>
+                        <strong>@line.ProductName</strong>
+                        <div class="hint">@line.RawText</div>
+                        @if (!string.IsNullOrWhiteSpace(line.BrandName))
+                        {
+                            <div class="hint">@line.BrandName</div>
+                        }
+                    </div>
+                    <div class="line-price">
+                        @line.Price.ToString("C")
+                        @if (line.Quantity > 1)
+                        {
+                            <span>×@line.Quantity</span>
+                        }
+                    </div>
+                </div>
+            }
+        </article>
+
+        <article>
+            <h2>Spend by store</h2>
+            @foreach (var item in _expense.Dashboard.ByStore)
+            {
+                <div class="breakdown-row">
+                    <div class="progress-label">
+                        <span>@item.Name</span>
+                        <strong>@item.Amount.ToString("C")</strong>
+                    </div>
+                    <div class="progress-track small">
+                        <div class="progress-fill" style="width:@BreakdownPercent(item.Amount)%"></div>
+                    </div>
+                </div>
+            }
+
+            <h2>Spend by category</h2>
+            @foreach (var item in _expense.Dashboard.ByCategory)
+            {
+                <div class="breakdown-row">
+                    <div class="progress-label">
+                        <span>@item.Name</span>
+                        <strong>@item.Amount.ToString("C")</strong>
+                    </div>
+                    <div class="progress-track small">
+                        <div class="progress-fill" style="width:@BreakdownPercent(item.Amount)%"></div>
+                    </div>
+                </div>
+            }
+        </article>
+    </section>
+
+    <button class="primary" @onclick="ScanAnotherReceipt">Scan another receipt</button>
+}
+
+@code {
+    [Parameter] public int ReceiptId { get; set; }
+
+    private BasketExpenseResponse? _expense;
+    private string? _error;
+    private bool _busy;
+
+    private decimal BudgetPercent =>
+        _expense is null || _expense.Dashboard.MonthlyBudget <= 0
+            ? 0
+            : Math.Min(100, Math.Round(_expense.Dashboard.Spent / _expense.Dashboard.MonthlyBudget * 100, 2));
+
+    private decimal BreakdownPercent(decimal amount) =>
+        _expense is null || _expense.Dashboard.Spent <= 0
+            ? 0
+            : Math.Min(100, Math.Round(amount / _expense.Dashboard.Spent * 100, 2));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _expense = await Api.GetReceiptExpenseAsync(ReceiptId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't load budget dashboard: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ScanAnotherReceipt() => Nav.NavigateTo("/scan");
+}

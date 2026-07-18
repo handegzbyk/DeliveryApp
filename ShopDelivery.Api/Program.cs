@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using ShopDelivery.Ai;
+using ShopDelivery.Api.Budget;
 using ShopDelivery.Api.Data;
 using ShopDelivery.Api.Enrichment;
 using ShopDelivery.Api.Products;
@@ -72,6 +73,7 @@ app.UseCors();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", at = DateTimeOffset.UtcNow }))
    .WithName("HealthCheck");
 
+app.MapBudgetEndpoints();
 app.MapProductEndpoints();
 app.MapReceiptEndpoints();
 
