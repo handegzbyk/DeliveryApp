@@ -12,6 +12,7 @@ services:
         project: ShopDelivery.Web
         host: staticwebapp
         language: dotnet
+        resourceName: shopdelivery-web
         dist: wwwroot
 resources:
     shopdelivery-api:
@@ -19,4 +20,3 @@ resources:
         port: 8080
     shopdelivery-web:
         type: host.staticwebapp
-    

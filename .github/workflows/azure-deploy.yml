@@ -31,5 +31,5 @@ jobs:
             --federated-credential-provider "github" \
             --tenant-id "$AZURE_TENANT_ID"
 
-      - name: Deploy API (ships the CORS fix)
-        run: azd deploy shopdelivery-api --no-prompt
+      - name: Deploy All
+        run: azd deploy --all --no-prompt
