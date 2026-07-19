@@ -60,8 +60,8 @@ public class ProductMatcher(ShopDbContext db)
 
         var best = ranked.FirstOrDefault();
 
-        // always offer "create new"
-        ranked.Add(new ProductCandidate(null, TitleCase(rawText), null, 0));
+        // A receipt can always be saved even when none of the catalog suggestions is right.
+        ranked.Add(new ProductCandidate(null, TitleCase(rawText), ProductImages.Generic, 0));
 
         int? matchedId = best is { Score: >= MatchThreshold } ? best.ProductId : null;
         return (matchedId, ranked);

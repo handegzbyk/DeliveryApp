@@ -30,4 +30,5 @@ public record ConfirmRequest(
 
 public record ConfirmLine(
     string RawText, decimal Price, int Quantity,
-    int? ProductId, string ProductName, int? BrandId, string? NewBrandName);
+    int? ProductId, string ProductName, int? BrandId, string? NewBrandName,
+    bool LearnStoreAlias = true);

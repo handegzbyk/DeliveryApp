@@ -90,6 +90,7 @@ public static class ReceiptEndpoints
                 var newBrands = new Dictionary<string, Brand>(StringComparer.OrdinalIgnoreCase);
                 var storeProductAliases = new Dictionary<string, StoreProduct>(StringComparer.OrdinalIgnoreCase);
                 var createdProducts = new List<Product>();
+                var genericProducts = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var line in req.Lines)
                 {
@@ -101,15 +102,24 @@ public static class ReceiptEndpoints
                     }
                     else
                     {
-                        product = new Product
+                        var productName = string.IsNullOrWhiteSpace(line.ProductName)
+                            ? line.RawText.Trim()
+                            : line.ProductName.Trim();
+
+                        if (!line.LearnStoreAlias)
                         {
-                            Name = string.IsNullOrWhiteSpace(line.ProductName)
-                                ? line.RawText.Trim()
-                                : line.ProductName.Trim(),
-                            Brand = await ResolveBrandAsync(line, db, newBrands, ct),
-                        };
-                        db.Products.Add(product);
-                        createdProducts.Add(product);
+                            product = await ResolveGenericProductAsync(productName, db, genericProducts, ct);
+                        }
+                        else
+                        {
+                            product = new Product
+                            {
+                                Name = productName,
+                                Brand = await ResolveBrandAsync(line, db, newBrands, ct),
+                            };
+                            db.Products.Add(product);
+                            createdProducts.Add(product);
+                        }
                     }
 
                     var storeProduct = await ResolveStoreProductAsync(line, store, product, db, storeProductAliases, ct);
@@ -154,8 +164,39 @@ public static class ReceiptEndpoints
         return brand;
     }
 
+    private static async Task<Product> ResolveGenericProductAsync(
+        string productName,
+        ShopDbContext db,
+        Dictionary<string, Product> genericProducts,
+        CancellationToken ct)
+    {
+        if (genericProducts.TryGetValue(productName, out var cached))
+            return cached;
+
+        var normalizedName = productName.ToLower();
+        var product = await db.Products.FirstOrDefaultAsync(
+            candidate => candidate.BrandId == null
+                         && candidate.OpenFoodFactsCode == null
+                         && candidate.ImageUrl == ProductImages.Generic
+                         && candidate.Name.ToLower() == normalizedName,
+            ct);
+
+        if (product is null)
+        {
+            product = new Product
+            {
+                Name = productName,
+                ImageUrl = ProductImages.Generic,
+            };
+            db.Products.Add(product);
+        }
+
+        genericProducts[productName] = product;
+        return product;
+    }
+
     // Learn the store-specific receipt/catalog name for the confirmed canonical product.
-    private static async Task<StoreProduct> ResolveStoreProductAsync(
+    private static async Task<StoreProduct?> ResolveStoreProductAsync(
         ConfirmLine line,
         Store store,
         Product product,
@@ -163,6 +204,11 @@ public static class ReceiptEndpoints
         Dictionary<string, StoreProduct> storeProductAliases,
         CancellationToken ct)
     {
+        // "Not this" still creates a product and price observation for the customer's budget,
+        // but it must not replace the globally learned store alias with a generic fallback.
+        if (!line.LearnStoreAlias)
+            return null;
+
         var aliasName = string.IsNullOrWhiteSpace(line.RawText)
             ? (string.IsNullOrWhiteSpace(line.ProductName) ? product.Name : line.ProductName.Trim())
             : line.RawText.Trim();

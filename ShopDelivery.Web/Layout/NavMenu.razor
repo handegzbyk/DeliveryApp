@@ -9,7 +9,7 @@
 
 <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
     <nav class="nav flex-column">
-        <div class="nav-section">Core</div>
+        <div class="nav-section">For you</div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Overview</NavLink>
         </div>
@@ -17,26 +17,23 @@
             <NavLink class="nav-link" href="scan">Scan receipt</NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="expenses">Expense dashboard</NavLink>
+            <NavLink class="nav-link" href="expenses">My budget</NavLink>
         </div>
 
-        <div class="nav-section">Catalog</div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="catalog-health">Health & warnings</NavLink>
-        </div>
+        <div class="nav-section">Plan & shop</div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="recommendations">Recommendations</NavLink>
         </div>
-
-        <div class="nav-section">Shopping</div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="loyalty">Loyalty points</NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="shop">Shop & baskets</NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="scan-raw">Raw OCR</NavLink>
+
+        <div class="nav-section admin-section">Administration</div>
+        <div class="nav-item px-3 admin-link">
+            <NavLink class="nav-link" href="admin">Master data</NavLink>
         </div>
     </nav>
 </div>

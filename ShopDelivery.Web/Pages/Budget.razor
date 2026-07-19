@@ -3,9 +3,10 @@
 @inject ShopApiClient Api
 @inject NavigationManager Nav
 
-<PageTitle>Budget Dashboard</PageTitle>
+<PageTitle>My Budget</PageTitle>
 
-<h1>Budget dashboard</h1>
+<div class="eyebrow">Added from your confirmed receipt</div>
+<h1>My budget</h1>
 
 @if (_busy)
 {
@@ -20,7 +21,7 @@ else if (_expense is not null)
 {
     <section class="budget-hero">
         <div>
-            <div class="label">Confirmed basket</div>
+            <div class="label">Added to my budget</div>
             <h2>@_expense.StoreName</h2>
             <p>@_expense.PurchasedAt.ToString("d")</p>
         </div>

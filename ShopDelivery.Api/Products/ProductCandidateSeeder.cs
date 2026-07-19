@@ -59,8 +59,9 @@ public sealed class ProductCandidateSeeder(
         if (productName is null)
             return;
 
-        var product = await FindProductAsync(externalId, productName, ct);
-        var brand = await ResolveBrandAsync(candidate.BrandName, ct);
+        var brandName = NormalizeBrandName(candidate.BrandName);
+        var product = await FindProductAsync(externalId, productName, brandName, ct);
+        var brand = await ResolveBrandAsync(brandName, ct);
 
         if (product is null)
         {
@@ -84,10 +85,16 @@ public sealed class ProductCandidateSeeder(
     private async Task<ProductEntity?> FindProductAsync(
         string? externalId,
         string productName,
+        string? brandName,
         CancellationToken ct)
     {
         if (externalId is not null)
         {
+            var localProductByExternalId = db.Products.Local.FirstOrDefault(
+                product => product.OpenFoodFactsCode == externalId);
+            if (localProductByExternalId is not null)
+                return localProductByExternalId;
+
             var productByExternalId = await db.Products.FirstOrDefaultAsync(
                 product => product.OpenFoodFactsCode == externalId,
                 ct);
@@ -97,8 +104,21 @@ public sealed class ProductCandidateSeeder(
         }
 
         var normalizedProductName = productName.ToLower();
-        return await db.Products.FirstOrDefaultAsync(
-            product => product.Name.ToLower() == normalizedProductName,
+        var localProductByIdentity = db.Products.Local.FirstOrDefault(product =>
+            product.Name.Equals(productName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(product.Brand?.Name, brandName, StringComparison.OrdinalIgnoreCase));
+        if (localProductByIdentity is not null)
+            return localProductByIdentity;
+
+        var products = db.Products.Include(product => product.Brand)
+            .Where(product => product.Name.ToLower() == normalizedProductName);
+
+        if (brandName is null)
+            return await products.FirstOrDefaultAsync(product => product.BrandId == null, ct);
+
+        var normalizedBrandName = brandName.ToLower();
+        return await products.FirstOrDefaultAsync(
+            product => product.Brand != null && product.Brand.Name.ToLower() == normalizedBrandName,
             ct);
     }
 
@@ -107,6 +127,11 @@ public sealed class ProductCandidateSeeder(
         var brandName = NormalizeBrandName(rawBrandName);
         if (brandName is null)
             return null;
+
+        var localBrand = db.Brands.Local.FirstOrDefault(
+            brand => brand.Name.Equals(brandName, StringComparison.OrdinalIgnoreCase));
+        if (localBrand is not null)
+            return localBrand;
 
         var normalizedBrandName = brandName.ToLower();
         return await db.Brands.FirstOrDefaultAsync(brand => brand.Name.ToLower() == normalizedBrandName, ct)

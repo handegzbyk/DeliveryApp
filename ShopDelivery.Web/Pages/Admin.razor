@@ -1,0 +1,164 @@
+@page "/admin"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+
+<PageTitle>Admin · Master data</PageTitle>
+
+<section class="admin-hero">
+    <div class="eyebrow">Administration</div>
+    <h1>Master data stays behind the customer journey.</h1>
+    <p>Manage catalog quality, imports, and receipt diagnostics without mixing operational controls into the personal app.</p>
+</section>
+
+@if (_busy)
+{
+    <p><em>Loading administration workspace…</em></p>
+}
+else
+{
+    <section class="dashboard-grid">
+        <article class="app-card">
+            <div class="eyebrow">API</div>
+            <h2>@(_health?.Status ?? "Unavailable")</h2>
+            <p class="muted">@(_health?.At.ToString("g") ?? "No health response")</p>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Product master</div>
+            <div class="metric">@_products.Count</div>
+            <p class="muted">Catalog products available for receipt matching.</p>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Needs attention</div>
+            <div class="metric">@WarningCount</div>
+            <p class="muted">Products missing an image, category, price, or external code.</p>
+        </article>
+    </section>
+
+    <section class="admin-grid">
+        <article class="app-card">
+            <h2>Catalog operations</h2>
+            <p class="muted">Seed the starter catalog or import a specific product into master data.</p>
+            <div class="admin-actions">
+                <button class="primary" @onclick="SeedCatalog" disabled="@_working">
+                    @(_working ? "Working…" : "Seed starter catalog")
+                </button>
+                <div class="import-row">
+                    <input @bind="_importQuery" placeholder="Barcode or product name" aria-label="Barcode or product name" />
+                    <button @onclick="ImportProduct" disabled="@(_working || string.IsNullOrWhiteSpace(_importQuery))">Import</button>
+                </div>
+            </div>
+            @if (_message is not null)
+            {
+                <p class="status-message">@_message</p>
+            }
+        </article>
+
+        <article class="app-card">
+            <h2>Master-data workspaces</h2>
+            <div class="admin-links">
+                <a href="catalog-health">
+                    <strong>Catalog health</strong>
+                    <span>Review incomplete products and matching risks.</span>
+                </a>
+                <a href="scan-raw">
+                    <strong>Raw receipt OCR</strong>
+                    <span>Inspect extraction results without entering the customer flow.</span>
+                </a>
+            </div>
+        </article>
+    </section>
+}
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+
+@code {
+    private ApiHealthResponse? _health;
+    private List<ProductSummary> _products = [];
+    private string? _importQuery;
+    private string? _message;
+    private string? _error;
+    private bool _busy;
+    private bool _working;
+
+    private int WarningCount => _products.Count(product =>
+        string.IsNullOrWhiteSpace(product.ImageUrl)
+        || string.IsNullOrWhiteSpace(product.Category)
+        || string.IsNullOrWhiteSpace(product.OpenFoodFactsCode)
+        || product.LatestPrice is null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _health = await Api.GetHealthAsync();
+            _products = (await Api.GetProductsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"The administration workspace could not be loaded. {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SeedCatalog()
+    {
+        _working = true;
+        _message = null;
+        _error = null;
+
+        try
+        {
+            var result = await Api.SeedProductCatalogAsync();
+            _message = $"{result.Created} created, {result.Updated} updated, {result.Skipped} already existed.";
+            _products = (await Api.GetProductsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Catalog seeding failed. {ex.Message}";
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    private async Task ImportProduct()
+    {
+        if (string.IsNullOrWhiteSpace(_importQuery))
+            return;
+
+        _working = true;
+        _message = null;
+        _error = null;
+
+        try
+        {
+            var product = await Api.ImportProductAsync(_importQuery.Trim());
+            _message = $"Imported {product.Name}.";
+            _importQuery = null;
+            _products = (await Api.GetProductsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Product import failed. {ex.Message}";
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+}

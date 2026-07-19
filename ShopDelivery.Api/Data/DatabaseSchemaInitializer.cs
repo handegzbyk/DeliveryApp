@@ -59,8 +59,18 @@ END;
 """, ct);
 
         await db.Database.ExecuteSqlRawAsync("""
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Products_OpenFoodFactsCode')
-    CREATE INDEX [IX_Products_OpenFoodFactsCode] ON [Products] ([OpenFoodFactsCode]) WHERE [OpenFoodFactsCode] IS NOT NULL;
+IF NOT EXISTS (
+    SELECT [OpenFoodFactsCode]
+    FROM [Products]
+    WHERE [OpenFoodFactsCode] IS NOT NULL
+    GROUP BY [OpenFoodFactsCode]
+    HAVING COUNT(*) > 1)
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Products_OpenFoodFactsCode' AND is_unique = 0)
+        DROP INDEX [IX_Products_OpenFoodFactsCode] ON [Products];
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Products_OpenFoodFactsCode')
+        CREATE UNIQUE INDEX [IX_Products_OpenFoodFactsCode] ON [Products] ([OpenFoodFactsCode]) WHERE [OpenFoodFactsCode] IS NOT NULL;
+END;
 """, ct);
 
         await db.Database.ExecuteSqlRawAsync("""
@@ -69,13 +79,34 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_Product
 """, ct);
 
         await db.Database.ExecuteSqlRawAsync("""
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_Name')
-    CREATE INDEX [IX_StoreProducts_StoreId_Name] ON [StoreProducts] ([StoreId], [Name]);
+IF NOT EXISTS (
+    SELECT [StoreId], [Name]
+    FROM [StoreProducts]
+    GROUP BY [StoreId], [Name]
+    HAVING COUNT(*) > 1)
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_Name' AND is_unique = 0)
+        DROP INDEX [IX_StoreProducts_StoreId_Name] ON [StoreProducts];
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_Name')
+        CREATE UNIQUE INDEX [IX_StoreProducts_StoreId_Name] ON [StoreProducts] ([StoreId], [Name]);
+END;
 """, ct);
 
         await db.Database.ExecuteSqlRawAsync("""
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_StoreProductCode')
-    CREATE INDEX [IX_StoreProducts_StoreId_StoreProductCode] ON [StoreProducts] ([StoreId], [StoreProductCode]);
+IF NOT EXISTS (
+    SELECT [StoreId], [StoreProductCode]
+    FROM [StoreProducts]
+    WHERE [StoreProductCode] IS NOT NULL
+    GROUP BY [StoreId], [StoreProductCode]
+    HAVING COUNT(*) > 1)
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_StoreProductCode' AND is_unique = 0)
+        DROP INDEX [IX_StoreProducts_StoreId_StoreProductCode] ON [StoreProducts];
+    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_StoreProductCode')
+        CREATE UNIQUE INDEX [IX_StoreProducts_StoreId_StoreProductCode]
+        ON [StoreProducts] ([StoreId], [StoreProductCode])
+        WHERE [StoreProductCode] IS NOT NULL;
+END;
 """, ct);
 
         await db.Database.ExecuteSqlRawAsync("""
@@ -112,21 +143,78 @@ CREATE TABLE IF NOT EXISTS StoreProducts (
                 ct);
         }
 
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX IF NOT EXISTS IX_Products_OpenFoodFactsCode ON Products (OpenFoodFactsCode);",
+        await EnsureSqliteUniqueIndexAsync(
+            db,
+            "IX_Products_OpenFoodFactsCode",
+            "Products",
+            "OpenFoodFactsCode",
+            "OpenFoodFactsCode IS NOT NULL",
+            "SELECT 1 FROM Products WHERE OpenFoodFactsCode IS NOT NULL GROUP BY OpenFoodFactsCode HAVING COUNT(*) > 1 LIMIT 1;",
             ct);
         await db.Database.ExecuteSqlRawAsync(
             "CREATE INDEX IF NOT EXISTS IX_StoreProducts_ProductId ON StoreProducts (ProductId);",
             ct);
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX IF NOT EXISTS IX_StoreProducts_StoreId_Name ON StoreProducts (StoreId, Name);",
+        await EnsureSqliteUniqueIndexAsync(
+            db,
+            "IX_StoreProducts_StoreId_Name",
+            "StoreProducts",
+            "StoreId, Name",
+            null,
+            "SELECT 1 FROM StoreProducts GROUP BY StoreId, Name HAVING COUNT(*) > 1 LIMIT 1;",
             ct);
-        await db.Database.ExecuteSqlRawAsync(
-            "CREATE INDEX IF NOT EXISTS IX_StoreProducts_StoreId_StoreProductCode ON StoreProducts (StoreId, StoreProductCode);",
+        await EnsureSqliteUniqueIndexAsync(
+            db,
+            "IX_StoreProducts_StoreId_StoreProductCode",
+            "StoreProducts",
+            "StoreId, StoreProductCode",
+            "StoreProductCode IS NOT NULL",
+            "SELECT 1 FROM StoreProducts WHERE StoreProductCode IS NOT NULL GROUP BY StoreId, StoreProductCode HAVING COUNT(*) > 1 LIMIT 1;",
             ct);
         await db.Database.ExecuteSqlRawAsync(
             "CREATE INDEX IF NOT EXISTS IX_PriceObservations_StoreProductId ON PriceObservations (StoreProductId);",
             ct);
+    }
+
+    private static async Task EnsureSqliteUniqueIndexAsync(
+        ShopDbContext db,
+        string indexName,
+        string tableName,
+        string columns,
+        string? filter,
+        string duplicateQuery,
+        CancellationToken ct)
+    {
+        if (await QueryReturnsRowsAsync(db, duplicateQuery, ct))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync($"DROP INDEX IF EXISTS {indexName};", ct);
+        var filterClause = filter is null ? "" : $" WHERE {filter}";
+        await db.Database.ExecuteSqlRawAsync(
+            $"CREATE UNIQUE INDEX IF NOT EXISTS {indexName} ON {tableName} ({columns}){filterClause};",
+            ct);
+    }
+
+    private static async Task<bool> QueryReturnsRowsAsync(
+        ShopDbContext db,
+        string commandText,
+        CancellationToken ct)
+    {
+        var connection = db.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+            await connection.OpenAsync(ct);
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = commandText;
+            return await command.ExecuteScalarAsync(ct) is not null;
+        }
+        finally
+        {
+            if (shouldClose)
+                await connection.CloseAsync();
+        }
     }
 
     private static async Task<bool> ColumnExistsAsync(

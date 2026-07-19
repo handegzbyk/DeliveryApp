@@ -24,12 +24,20 @@ public sealed class ShopDbContext : DbContext
         modelBuilder.Entity<PriceObservation>().Property(observation => observation.Price).HasPrecision(18, 2);
 
         modelBuilder.Entity<Product>().Property(product => product.OpenFoodFactsCode).HasMaxLength(64);
-        modelBuilder.Entity<Product>().HasIndex(product => product.OpenFoodFactsCode);
+        modelBuilder.Entity<Product>()
+            .HasIndex(product => product.OpenFoodFactsCode)
+            .IsUnique()
+            .HasFilter("[OpenFoodFactsCode] IS NOT NULL");
 
         modelBuilder.Entity<StoreProduct>().Property(storeProduct => storeProduct.Name).HasMaxLength(450);
         modelBuilder.Entity<StoreProduct>().Property(storeProduct => storeProduct.StoreProductCode).HasMaxLength(128);
-        modelBuilder.Entity<StoreProduct>().HasIndex(storeProduct => new { storeProduct.StoreId, storeProduct.Name });
-        modelBuilder.Entity<StoreProduct>().HasIndex(storeProduct => new { storeProduct.StoreId, storeProduct.StoreProductCode });
+        modelBuilder.Entity<StoreProduct>()
+            .HasIndex(storeProduct => new { storeProduct.StoreId, storeProduct.Name })
+            .IsUnique();
+        modelBuilder.Entity<StoreProduct>()
+            .HasIndex(storeProduct => new { storeProduct.StoreId, storeProduct.StoreProductCode })
+            .IsUnique()
+            .HasFilter("[StoreProductCode] IS NOT NULL");
 
         modelBuilder.Entity<PriceObservation>()
             .HasOne(observation => observation.StoreProduct)

@@ -101,7 +101,7 @@ CREATE INDEX [IX_PriceObservations_ReceiptId] ON [PriceObservations] ([ReceiptId
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Products_OpenFoodFactsCode')
-CREATE INDEX [IX_Products_OpenFoodFactsCode] ON [Products] ([OpenFoodFactsCode]) WHERE [OpenFoodFactsCode] IS NOT NULL;
+CREATE UNIQUE INDEX [IX_Products_OpenFoodFactsCode] ON [Products] ([OpenFoodFactsCode]) WHERE [OpenFoodFactsCode] IS NOT NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Products_BrandId')
@@ -117,9 +117,11 @@ CREATE INDEX [IX_StoreProducts_ProductId] ON [StoreProducts] ([ProductId]);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_Name')
-CREATE INDEX [IX_StoreProducts_StoreId_Name] ON [StoreProducts] ([StoreId], [Name]);
+CREATE UNIQUE INDEX [IX_StoreProducts_StoreId_Name] ON [StoreProducts] ([StoreId], [Name]);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_StoreId_StoreProductCode')
-CREATE INDEX [IX_StoreProducts_StoreId_StoreProductCode] ON [StoreProducts] ([StoreId], [StoreProductCode]);
+CREATE UNIQUE INDEX [IX_StoreProducts_StoreId_StoreProductCode]
+ON [StoreProducts] ([StoreId], [StoreProductCode])
+WHERE [StoreProductCode] IS NOT NULL;
 GO

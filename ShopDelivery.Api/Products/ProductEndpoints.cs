@@ -55,8 +55,9 @@ public static class ProductEndpoints
 
             var externalId = NormalizeOptional(info.ExternalId);
             var productName = FirstNonEmpty(info.CanonicalName, query)!;
-            var product = await FindProductAsync(db, externalId, productName, query, ct);
-            var brand = await ResolveBrandAsync(info.BrandName, db, ct);
+            var brandName = NormalizeBrandName(info.BrandName);
+            var product = await FindProductAsync(db, externalId, productName, brandName, ct);
+            var brand = await ResolveBrandAsync(brandName, db, ct);
             var created = product is null;
 
             if (product is null)
@@ -118,7 +119,7 @@ public static class ProductEndpoints
         ShopDbContext db,
         string? externalId,
         string productName,
-        string query,
+        string? brandName,
         CancellationToken ct)
     {
         if (externalId is not null)
@@ -131,18 +132,18 @@ public static class ProductEndpoints
                 return productByExternalId;
         }
 
-        foreach (var name in DistinctNames(productName, query))
-        {
-            var normalizedName = name.ToLower();
-            var productByName = await db.Products
-                .Include(product => product.Brand)
-                .FirstOrDefaultAsync(product => product.Name.ToLower() == normalizedName, ct);
+        var normalizedName = productName.ToLower();
+        var products = db.Products
+            .Include(product => product.Brand)
+            .Where(product => product.Name.ToLower() == normalizedName);
 
-            if (productByName is not null)
-                return productByName;
-        }
+        if (brandName is null)
+            return await products.FirstOrDefaultAsync(product => product.BrandId == null, ct);
 
-        return null;
+        var normalizedBrandName = brandName.ToLower();
+        return await products.FirstOrDefaultAsync(
+            product => product.Brand != null && product.Brand.Name.ToLower() == normalizedBrandName,
+            ct);
     }
 
     private static async Task<BrandEntity?> ResolveBrandAsync(
@@ -211,12 +212,6 @@ public static class ProductEndpoints
         storeProduct.Product = product;
         storeProduct.StoreProductCode ??= storeProductCode;
     }
-
-    private static IEnumerable<string> DistinctNames(params string?[] names) =>
-        names.Select(NormalizeOptional)
-            .Where(name => name is not null)
-            .Select(name => name!)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
 
     private static string? NormalizeBrandName(string? rawBrandName) =>
         rawBrandName?
