@@ -1,0 +1,68 @@
+@page "/loyalty"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+
+<PageTitle>Loyalty Points</PageTitle>
+
+<section class="hero">
+    <div class="eyebrow">Earn shopping loyalty points</div>
+    <h1>Reward receipt scans, confirmed matches, and delivery baskets.</h1>
+    <p>Points are calculated from confirmed basket activity. A persistent loyalty ledger can be added when accounts are introduced.</p>
+</section>
+
+@if (_busy)
+{
+    <p><em>Calculating loyalty points…</em></p>
+}
+else
+{
+    <section class="dashboard-grid">
+        <article class="app-card">
+            <div class="eyebrow">Estimated points</div>
+            <div class="metric">@EstimatedPoints</div>
+            <p class="muted">Based on latest confirmed basket and catalog participation.</p>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Next reward</div>
+            <h2>@Math.Max(0, 500 - EstimatedPoints) points away</h2>
+            <p class="muted">500 points unlocks a delivery-fee voucher.</p>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Catalog contribution</div>
+            <h2>@_products.Count</h2>
+            <p class="muted">Products available for matching and recommendations.</p>
+        </article>
+    </section>
+
+    <section class="app-card">
+        <h2>How points are earned</h2>
+        <p>Receipt scan: 10 points</p>
+        <p>Confirmed basket: 50 points</p>
+        <p>Each matched basket item: 3 points</p>
+        <p>Delivery order: 100 points</p>
+    </section>
+}
+
+@code {
+    private BasketExpenseResponse? _latestExpense;
+    private List<ProductSummary> _products = [];
+    private bool _busy;
+
+    private int EstimatedPoints =>
+        (_latestExpense is null ? 0 : 60 + _latestExpense.Lines.Count * 3)
+        + Math.Min(100, _products.Count / 5);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _busy = true;
+        try
+        {
+            _products = (await Api.GetProductsAsync()).ToList();
+            _latestExpense = await Api.GetLatestExpenseAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

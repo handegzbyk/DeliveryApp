@@ -2,112 +2,114 @@
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 
-<PageTitle>Products</PageTitle>
+<PageTitle>SmartBasket</PageTitle>
 
-<h1>Products</h1>
+<section class="hero">
+    <div class="eyebrow">Smart grocery operating system</div>
+    <h1>Scan receipts, learn stores, plan baskets, and route delivery.</h1>
+    <p>
+        Products are seeded from OpenFoodFacts, receipt names are learned per market,
+        and confirmed baskets become expense insights plus future recommendations.
+    </p>
+    <a class="button-primary" href="scan">Scan receipt</a>
+</section>
 
-<div class="product-import">
-    <input @bind="_query" @bind:event="oninput" placeholder="Search OpenFoodFacts, e.g. oat milk" />
-    <button class="primary" @onclick="ImportProduct" disabled="@_busy">Import from API</button>
-    <button @onclick="SeedCatalog" disabled="@_busy">Seed starter catalog</button>
-</div>
+@if (_busy)
+{
+    <p><em>Loading overview…</em></p>
+}
+else
+{
+    <section class="dashboard-grid">
+        <article class="app-card">
+            <div class="eyebrow">Catalog</div>
+            <div class="metric">@_products.Count</div>
+            <p class="muted">OpenFoodFacts products ready for receipt matching.</p>
+            <button class="primary" @onclick="SeedCatalog" disabled="@_seeding">
+                @(_seeding ? "Seeding…" : "Seed starter catalog")
+            </button>
+            @if (_message is not null)
+            {
+                <p class="muted">@_message</p>
+            }
+        </article>
+
+        <article class="app-card">
+            <div class="eyebrow">Expense</div>
+            <h2>@(_latestExpense?.Total.ToString("C") ?? "No basket yet")</h2>
+            <p class="muted">
+                @(_latestExpense is null
+                    ? "Confirm a scanned receipt to unlock the budget dashboard."
+                    : $"{_latestExpense.StoreName} · {_latestExpense.PurchasedAt:d}")
+            </p>
+            <a href="expenses">Open expense dashboard</a>
+        </article>
+
+        <article class="app-card">
+            <div class="eyebrow">Warnings</div>
+            <h2>@WarningCount</h2>
+            <p class="muted">Products missing images, categories, prices, or OpenFoodFacts codes.</p>
+            <a href="catalog-health">Review catalog health</a>
+        </article>
+    </section>
+
+    <section class="feature-grid">
+        <article class="app-card">
+            <h2>Earn loyalty points</h2>
+            <p class="muted">Reward receipt scans, confirmed matches, and basket delivery orders.</p>
+            <a href="loyalty">Open loyalty</a>
+        </article>
+        <article class="app-card">
+            <h2>Get recommendations</h2>
+            <p class="muted">Use your catalog and basket history to suggest useful grocery items.</p>
+            <a href="recommendations">Open recommendations</a>
+        </article>
+        <article class="app-card">
+            <h2>Shop and deliver</h2>
+            <p class="muted">Create a shopping list, compare nearby markets, and prepare delivery.</p>
+            <a href="shop">Open basket builder</a>
+        </article>
+    </section>
+}
 
 @if (_error is not null)
 {
     <p class="error" role="alert">@_error</p>
 }
 
-@if (_message is not null)
-{
-    <p>@_message</p>
-}
-
-@if (_busy)
-{
-    <p><em>Loading…</em></p>
-}
-else if (_products.Count == 0)
-{
-    <p>No products saved yet. Import one above or confirm a receipt.</p>
-}
-else
-{
-    <div class="product-grid">
-        @foreach (var product in _products)
-        {
-            <article class="product-card">
-                @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
-                {
-                    <img src="@product.ImageUrl" alt="@product.Name" />
-                }
-                <div>
-                    <h2>@product.Name</h2>
-                    <p>@(product.BrandName ?? "No brand")</p>
-                    @if (!string.IsNullOrWhiteSpace(product.OpenFoodFactsCode))
-                    {
-                        <p>OpenFoodFacts: @product.OpenFoodFactsCode</p>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(product.Category))
-                    {
-                        <p>@product.Category</p>
-                    }
-                    @if (product.LatestPrice is { } price)
-                    {
-                        <p>@price.ToString("C")</p>
-                    }
-                </div>
-            </article>
-        }
-    </div>
-}
-
 @code {
     private List<ProductSummary> _products = [];
-    private string? _query;
-    private string? _error;
+    private BasketExpenseResponse? _latestExpense;
     private string? _message;
+    private string? _error;
     private bool _busy;
+    private bool _seeding;
 
-    protected override async Task OnInitializedAsync() => await LoadProducts();
+    private int WarningCount =>
+        _products.Count(product =>
+            string.IsNullOrWhiteSpace(product.ImageUrl)
+            || string.IsNullOrWhiteSpace(product.Category)
+            || string.IsNullOrWhiteSpace(product.OpenFoodFactsCode)
+            || product.LatestPrice is null);
 
-    private async Task LoadProducts()
+    protected override async Task OnInitializedAsync()
     {
-        _error = null;
-        _message = null;
-        _busy = true;
-
-        try
-        {
-            _products = (await Api.GetProductsAsync()).ToList();
-        }
-        catch (Exception ex)
-        {
-            _error = $"Couldn't load products: {ex.Message}";
-        }
-        finally
-        {
-            _busy = false;
-        }
+        await Load();
     }
 
-    private async Task ImportProduct()
+    private async Task Load()
     {
-        if (string.IsNullOrWhiteSpace(_query))
-            return;
-
-        _error = null;
-        _message = null;
         _busy = true;
+        _error = null;
 
         try
         {
-            await Api.ImportProductAsync(_query);
-            _query = null;
             _products = (await Api.GetProductsAsync()).ToList();
+            _latestExpense = await Api.GetLatestExpenseAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Couldn't import product: {ex.Message}";
+            _error = $"Couldn't load overview: {ex.Message}";
         }
         finally
         {
@@ -117,14 +119,14 @@ else
 
     private async Task SeedCatalog()
     {
-        _error = null;
+        _seeding = true;
         _message = null;
-        _busy = true;
+        _error = null;
 
         try
         {
             var result = await Api.SeedProductCatalogAsync();
-            _message = $"Seeded catalog: {result.Created} created, {result.Updated} updated, {result.Skipped} already present.";
+            _message = $"{result.Created} created, {result.Updated} updated, {result.Skipped} already existed.";
             _products = (await Api.GetProductsAsync()).ToList();
         }
         catch (Exception ex)
@@ -133,7 +135,8 @@ else
         }
         finally
         {
-            _busy = false;
+            _seeding = false;
         }
     }
+
 }

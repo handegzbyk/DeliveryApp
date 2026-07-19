@@ -1,0 +1,157 @@
+@page "/shop"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+
+<PageTitle>Shop & Delivery</PageTitle>
+
+<section class="hero">
+    <div class="eyebrow">Shop and make baskets</div>
+    <h1>Build a shopping list, compare markets, and prepare delivery.</h1>
+    <p>Use catalog products to create a basket. Market routing is estimated until live market inventory APIs are connected.</p>
+</section>
+
+@if (_busy)
+{
+    <p><em>Loading products…</em></p>
+}
+else
+{
+    <section class="shop-layout">
+        <article class="app-card">
+            <h2>Online shop</h2>
+            <input class="search" @bind="_query" @bind:event="oninput" placeholder="Search product catalog" />
+            <div class="catalog-list">
+                @foreach (var product in FilteredProducts.Take(24))
+                {
+                    <div class="shop-product">
+                        @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                        {
+                            <img src="@product.ImageUrl" alt="@product.Name" />
+                        }
+                        <div>
+                            <strong>@product.Name</strong>
+                            <p class="muted">@product.BrandName</p>
+                        </div>
+                        <button @onclick="() => AddToBasket(product)">Add</button>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <aside>
+            <article class="app-card">
+                <h2>Shopping list</h2>
+                @if (_basket.Count == 0)
+                {
+                    <p class="muted">Add products to create a basket.</p>
+                }
+                else
+                {
+                    @foreach (var item in _basket)
+                    {
+                        <div class="basket-row">
+                            <span>@item.Product.Name</span>
+                            <div>
+                                <button @onclick="() => ChangeQuantity(item.Product.Id, -1)">−</button>
+                                <strong>@item.Quantity</strong>
+                                <button @onclick="() => ChangeQuantity(item.Product.Id, 1)">+</button>
+                            </div>
+                        </div>
+                    }
+                }
+            </article>
+
+            <article class="app-card">
+                <h2>Best market around</h2>
+                @foreach (var market in MarketOptions)
+                {
+                    <div class="market-row @(market == BestMarket ? "best" : "")">
+                        <strong>@market.Name</strong>
+                        <span>@market.DistanceKm.ToString("0.0") km</span>
+                        <span>@market.EstimatedTotal.ToString("C")</span>
+                    </div>
+                }
+            </article>
+
+            <article class="app-card">
+                <h2>Delivery</h2>
+                <p class="muted">Estimated delivery from @BestMarket.Name.</p>
+                <p><strong>@DeliveryTotal.ToString("C")</strong> basket + delivery estimate</p>
+                <button class="primary" disabled="@(_basket.Count == 0)">Prepare delivery order</button>
+            </article>
+        </aside>
+    </section>
+}
+
+@code {
+    private readonly List<BasketItem> _basket = [];
+    private List<ProductSummary> _products = [];
+    private string? _query;
+    private bool _busy;
+
+    private IEnumerable<ProductSummary> FilteredProducts =>
+        string.IsNullOrWhiteSpace(_query)
+            ? _products.Where(product => !string.IsNullOrWhiteSpace(product.ImageUrl))
+            : _products.Where(product => product.Name.Contains(_query, StringComparison.OrdinalIgnoreCase));
+
+    private decimal BasketBaseTotal =>
+        _basket.Sum(item => item.Quantity * (item.Product.LatestPrice ?? 2.49m));
+
+    private List<MarketOption> MarketOptions =>
+    [
+        new("EDEKA", 0.8m, BasketBaseTotal * 1.02m),
+        new("REWE", 1.4m, BasketBaseTotal * 1.04m),
+        new("Lidl", 2.1m, BasketBaseTotal * .94m),
+        new("Aldi", 2.6m, BasketBaseTotal * .92m),
+    ];
+
+    private MarketOption BestMarket =>
+        MarketOptions.OrderBy(market => market.EstimatedTotal + market.DistanceKm * .65m).First();
+
+    private decimal DeliveryTotal =>
+        BestMarket.EstimatedTotal + (_basket.Count == 0 ? 0 : 3.99m);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _busy = true;
+        try
+        {
+            _products = (await Api.GetProductsAsync()).ToList();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void AddToBasket(ProductSummary product)
+    {
+        var item = _basket.FirstOrDefault(item => item.Product.Id == product.Id);
+        if (item is null)
+        {
+            _basket.Add(new BasketItem(product, 1));
+            return;
+        }
+
+        item.Quantity++;
+    }
+
+    private void ChangeQuantity(int productId, int delta)
+    {
+        var item = _basket.FirstOrDefault(item => item.Product.Id == productId);
+        if (item is null)
+            return;
+
+        item.Quantity += delta;
+        if (item.Quantity <= 0)
+            _basket.Remove(item);
+    }
+
+    private sealed record MarketOption(string Name, decimal DistanceKm, decimal EstimatedTotal);
+
+    private sealed class BasketItem(ProductSummary product, int quantity)
+    {
+        public ProductSummary Product { get; } = product;
+        public int Quantity { get; set; } = quantity;
+    }
+}

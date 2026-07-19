@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Components.Forms;
 using ShopDelivery.Shared;
@@ -6,6 +7,9 @@ namespace ShopDelivery.Web.Services;
 
 public sealed class ShopApiClient(HttpClient http)
 {
+    public async Task<ApiHealthResponse?> GetHealthAsync(CancellationToken ct = default) =>
+        await http.GetFromJsonAsync<ApiHealthResponse>("api/health", ct);
+
     public async Task<IReadOnlyList<ProductSummary>> GetProductsAsync(CancellationToken ct = default) =>
         await http.GetFromJsonAsync<List<ProductSummary>>("api/products", ct) ?? [];
 
@@ -58,5 +62,17 @@ public sealed class ShopApiClient(HttpClient http)
     public async Task<BasketExpenseResponse> GetReceiptExpenseAsync(int receiptId, CancellationToken ct = default) =>
         (await http.GetFromJsonAsync<BasketExpenseResponse>($"api/receipts/{receiptId}/expense", ct))!;
 
+    public async Task<BasketExpenseResponse?> GetLatestExpenseAsync(CancellationToken ct = default)
+    {
+        var response = await http.GetAsync("api/expenses/latest", ct);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<BasketExpenseResponse>(cancellationToken: ct);
+    }
+
     private record ConfirmResult(int Id);
 }
+
+public record ApiHealthResponse(string Status, DateTimeOffset At);

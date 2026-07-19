@@ -1,5 +1,7 @@
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #f6f7f4;
+    color: #17211c;
+    font-family: Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 h1:focus {
@@ -7,7 +9,88 @@ h1:focus {
 }
 
 a, .btn-link {
-    color: #0071c1;
+    color: #176b45;
+}
+
+h1, h2, h3 {
+    letter-spacing: -.03em;
+}
+
+.eyebrow {
+    color: #658070;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.hero {
+    background: linear-gradient(135deg, #12372a 0%, #2e7d54 100%);
+    border-radius: 24px;
+    color: white;
+    margin-bottom: 1.5rem;
+    padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.hero p {
+    color: rgba(255, 255, 255, .82);
+    max-width: 760px;
+}
+
+.dashboard-grid,
+.feature-grid,
+.product-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.app-card {
+    background: white;
+    border: 1px solid #e1e4dc;
+    border-radius: 18px;
+    box-shadow: 0 14px 30px rgba(18, 55, 42, .06);
+    padding: 1rem;
+}
+
+.app-card h2,
+.app-card h3 {
+    margin-top: 0;
+}
+
+.primary,
+button.primary,
+.button-primary {
+    background: #176b45;
+    border: 0;
+    border-radius: 999px;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+    font-weight: 700;
+    padding: .65rem 1rem;
+    text-decoration: none;
+}
+
+button {
+    border: 1px solid #cfd7cd;
+    border-radius: 999px;
+    cursor: pointer;
+    padding: .55rem .9rem;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: .65;
+}
+
+.metric {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.muted {
+    color: #66756b;
 }
 
 .btn-primary {

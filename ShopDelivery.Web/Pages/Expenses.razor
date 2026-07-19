@@ -1,0 +1,91 @@
+@page "/expenses"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Expense Dashboard</PageTitle>
+
+<section class="hero">
+    <div class="eyebrow">Expense dashboard</div>
+    <h1>Track grocery spend from confirmed baskets.</h1>
+    <p>Use scanned receipts to see monthly spend, remaining budget, stores, and category pressure.</p>
+    <a class="button-primary" href="scan">Scan receipt</a>
+</section>
+
+@if (_busy)
+{
+    <p><em>Loading latest expense dashboard…</em></p>
+}
+else if (_expense is null)
+{
+    <article class="app-card">
+        <h2>No confirmed baskets yet</h2>
+        <p class="muted">Scan and confirm a receipt to create your first expense dashboard.</p>
+        <button class="primary" @onclick="ScanReceipt">Scan receipt</button>
+    </article>
+}
+else
+{
+    <section class="dashboard-grid">
+        <article class="app-card">
+            <div class="eyebrow">Latest basket</div>
+            <h2>@_expense.Total.ToString("C")</h2>
+            <p class="muted">@_expense.StoreName · @_expense.PurchasedAt.ToString("d")</p>
+            <a href="@($"budget/{_expense.ReceiptId}")">Open basket detail</a>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Monthly spend</div>
+            <h2>@_expense.Dashboard.Spent.ToString("C")</h2>
+            <p class="muted">@_expense.Dashboard.Remaining.ToString("C") remaining from @_expense.Dashboard.MonthlyBudget.ToString("C").</p>
+        </article>
+    </section>
+
+    <section class="dashboard-grid">
+        <article class="app-card">
+            <h2>Spend by store</h2>
+            @foreach (var item in _expense.Dashboard.ByStore)
+            {
+                <p><strong>@item.Name</strong> · @item.Amount.ToString("C")</p>
+            }
+        </article>
+        <article class="app-card">
+            <h2>Spend by category</h2>
+            @foreach (var item in _expense.Dashboard.ByCategory)
+            {
+                <p><strong>@item.Name</strong> · @item.Amount.ToString("C")</p>
+            }
+        </article>
+    </section>
+}
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+
+@code {
+    private BasketExpenseResponse? _expense;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _busy = true;
+
+        try
+        {
+            _expense = await Api.GetLatestExpenseAsync();
+        }
+        catch (Exception ex)
+        {
+            _expense = null;
+            _error = $"Couldn't load latest expense dashboard: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ScanReceipt() => Nav.NavigateTo("/scan");
+}

@@ -1,0 +1,111 @@
+@page "/catalog-health"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+
+<PageTitle>Catalog Health</PageTitle>
+
+<section class="hero">
+    <div class="eyebrow">Health & product warnings</div>
+    <h1>Monitor API health and product catalog quality.</h1>
+    <p>Find products that need images, categories, prices, or OpenFoodFacts identifiers before receipt matching suffers.</p>
+</section>
+
+@if (_busy)
+{
+    <p><em>Checking systems…</em></p>
+}
+else
+{
+    <section class="dashboard-grid">
+        <article class="app-card">
+            <div class="eyebrow">API status</div>
+            <h2>@(_health?.Status ?? "Unknown")</h2>
+            <p class="muted">@(_health?.At.ToString("g") ?? "Health endpoint unavailable")</p>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Products</div>
+            <h2>@_products.Count</h2>
+            <p class="muted">Seeded and learned catalog items.</p>
+        </article>
+        <article class="app-card">
+            <div class="eyebrow">Warnings</div>
+            <h2>@Warnings.Count</h2>
+            <p class="muted">Rows needing cleanup or more receipt history.</p>
+        </article>
+    </section>
+
+    <section class="app-card">
+        <h2>Product warnings</h2>
+        @if (Warnings.Count == 0)
+        {
+            <p class="muted">No catalog warnings.</p>
+        }
+        else
+        {
+            <div class="warning-list">
+                @foreach (var warning in Warnings.Take(80))
+                {
+                    <div class="warning-row">
+                        @if (!string.IsNullOrWhiteSpace(warning.Product.ImageUrl))
+                        {
+                            <img src="@warning.Product.ImageUrl" alt="@warning.Product.Name" />
+                        }
+                        <div>
+                            <strong>@warning.Product.Name</strong>
+                            <p class="muted">@warning.Reason</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+
+@code {
+    private ApiHealthResponse? _health;
+    private List<ProductSummary> _products = [];
+    private string? _error;
+    private bool _busy;
+
+    private List<ProductWarning> Warnings =>
+        _products.Select(product => new ProductWarning(product, BuildReason(product)))
+            .Where(warning => warning.Reason.Length > 0)
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            _health = await Api.GetHealthAsync();
+            _products = (await Api.GetProductsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't load health dashboard: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string BuildReason(ProductSummary product)
+    {
+        var reasons = new List<string>();
+        if (string.IsNullOrWhiteSpace(product.ImageUrl)) reasons.Add("missing image");
+        if (string.IsNullOrWhiteSpace(product.Category)) reasons.Add("missing category");
+        if (string.IsNullOrWhiteSpace(product.OpenFoodFactsCode)) reasons.Add("missing OpenFoodFacts code");
+        if (product.LatestPrice is null) reasons.Add("no store price yet");
+        return string.Join(", ", reasons);
+    }
+
+    private record ProductWarning(ProductSummary Product, string Reason);
+}

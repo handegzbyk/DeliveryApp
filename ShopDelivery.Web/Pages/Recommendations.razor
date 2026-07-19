@@ -1,0 +1,74 @@
+@page "/recommendations"
+@using ShopDelivery.Shared
+@inject ShopApiClient Api
+
+<PageTitle>Recommendations</PageTitle>
+
+<section class="hero">
+    <div class="eyebrow">Product recommendations</div>
+    <h1>Suggest useful products from the catalog.</h1>
+    <p>Recommendations prioritize products with images and categories, then use basket history when available.</p>
+</section>
+
+@if (_busy)
+{
+    <p><em>Building recommendations…</em></p>
+}
+else
+{
+    <section class="dashboard-grid">
+        @foreach (var product in RecommendedProducts)
+        {
+            <article class="app-card product-card">
+                @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                {
+                    <img src="@product.ImageUrl" alt="@product.Name" />
+                }
+                <div class="eyebrow">@RecommendationLabel(product)</div>
+                <h2>@product.Name</h2>
+                <p class="muted">@product.BrandName</p>
+                @if (!string.IsNullOrWhiteSpace(product.Category))
+                {
+                    <p class="muted">@product.Category</p>
+                }
+            </article>
+        }
+    </section>
+}
+
+@code {
+    private BasketExpenseResponse? _latestExpense;
+    private List<ProductSummary> _products = [];
+    private bool _busy;
+
+    private IEnumerable<ProductSummary> RecommendedProducts =>
+        _products
+            .Where(product => !string.IsNullOrWhiteSpace(product.ImageUrl))
+            .OrderByDescending(product => MatchesLatestCategory(product))
+            .ThenBy(product => product.LatestPrice is null)
+            .ThenBy(product => product.Name)
+            .Take(12);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _busy = true;
+        try
+        {
+            _products = (await Api.GetProductsAsync()).ToList();
+            _latestExpense = await Api.GetLatestExpenseAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private bool MatchesLatestCategory(ProductSummary product) =>
+        _latestExpense?.Lines.Any(line =>
+            !string.IsNullOrWhiteSpace(line.Category)
+            && !string.IsNullOrWhiteSpace(product.Category)
+            && product.Category.Contains(line.Category.Split(',')[0], StringComparison.OrdinalIgnoreCase)) == true;
+
+    private string RecommendationLabel(ProductSummary product) =>
+        MatchesLatestCategory(product) ? "Based on your basket" : "Catalog pick";
+}
