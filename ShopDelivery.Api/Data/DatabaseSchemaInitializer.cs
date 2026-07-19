@@ -23,6 +23,34 @@ public static class DatabaseSchemaInitializer
     private static async Task ApplySqlServerUpdatesAsync(ShopDbContext db, CancellationToken ct)
     {
         await db.Database.ExecuteSqlRawAsync("""
+IF OBJECT_ID(N'[CustomerBudgets]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [CustomerBudgets] (
+        [CustomerId] nvarchar(64) NOT NULL,
+        [MonthlyBudget] decimal(18,2) NOT NULL,
+        CONSTRAINT [PK_CustomerBudgets] PRIMARY KEY ([CustomerId])
+    );
+END;
+""", ct);
+
+        await db.Database.ExecuteSqlRawAsync("""
+IF COL_LENGTH(N'Receipts', N'CustomerId') IS NULL
+    ALTER TABLE [Receipts] ADD [CustomerId] nvarchar(64) NULL;
+
+UPDATE [Receipts]
+SET [CustomerId] = N'legacy-unassigned'
+WHERE [CustomerId] IS NULL OR LTRIM(RTRIM([CustomerId])) = N'';
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'[Receipts]')
+      AND name = N'CustomerId'
+      AND is_nullable = 1)
+    ALTER TABLE [Receipts] ALTER COLUMN [CustomerId] nvarchar(64) NOT NULL;
+""", ct);
+
+        await db.Database.ExecuteSqlRawAsync("""
 IF COL_LENGTH(N'Products', N'OpenFoodFactsCode') IS NULL
     ALTER TABLE [Products] ADD [OpenFoodFactsCode] nvarchar(64) NULL;
 """, ct);
@@ -113,10 +141,33 @@ END;
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PriceObservations_StoreProductId')
     CREATE INDEX [IX_PriceObservations_StoreProductId] ON [PriceObservations] ([StoreProductId]);
 """, ct);
+
+        await db.Database.ExecuteSqlRawAsync("""
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Receipts_CustomerId_PurchasedAt')
+    CREATE INDEX [IX_Receipts_CustomerId_PurchasedAt] ON [Receipts] ([CustomerId], [PurchasedAt]);
+""", ct);
     }
 
     private static async Task ApplySqliteUpdatesAsync(ShopDbContext db, CancellationToken ct)
     {
+        await db.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS CustomerBudgets (
+    CustomerId TEXT NOT NULL CONSTRAINT PK_CustomerBudgets PRIMARY KEY,
+    MonthlyBudget TEXT NOT NULL
+);
+""", ct);
+
+        if (!await ColumnExistsAsync(db, "Receipts", "CustomerId", ct))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE Receipts ADD COLUMN CustomerId TEXT NULL;",
+                ct);
+        }
+
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE Receipts SET CustomerId = 'legacy-unassigned' WHERE CustomerId IS NULL OR trim(CustomerId) = '';",
+            ct);
+
         if (!await ColumnExistsAsync(db, "Products", "OpenFoodFactsCode", ct))
         {
             await db.Database.ExecuteSqlRawAsync(
@@ -172,6 +223,9 @@ CREATE TABLE IF NOT EXISTS StoreProducts (
             ct);
         await db.Database.ExecuteSqlRawAsync(
             "CREATE INDEX IF NOT EXISTS IX_PriceObservations_StoreProductId ON PriceObservations (StoreProductId);",
+            ct);
+        await db.Database.ExecuteSqlRawAsync(
+            "CREATE INDEX IF NOT EXISTS IX_Receipts_CustomerId_PurchasedAt ON Receipts (CustomerId, PurchasedAt);",
             ct);
     }
 

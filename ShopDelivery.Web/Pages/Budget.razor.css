@@ -30,6 +30,27 @@
     margin: 1rem 0 1.5rem;
 }
 
+.budget-setting {
+    align-items: end;
+    display: grid;
+    gap: .5rem;
+    grid-template-columns: minmax(160px, 240px) minmax(120px, 180px) auto;
+    margin-top: 1rem;
+}
+
+.budget-setting label {
+    color: #526057;
+    font-size: .82rem;
+    font-weight: 700;
+    grid-column: 1 / -1;
+}
+
+.budget-setting input {
+    border: 1px solid #cfd7cf;
+    border-radius: 10px;
+    padding: .6rem .7rem;
+}
+
 .progress-label {
     display: flex;
     gap: 1rem;
@@ -117,6 +138,11 @@
 }
 
 @media (max-width: 760px) {
+    .budget-setting {
+        align-items: stretch;
+        grid-template-columns: 1fr;
+    }
+
     .dashboard-grid {
         grid-template-columns: 1fr;
     }

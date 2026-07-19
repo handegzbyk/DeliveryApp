@@ -1,6 +1,10 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using ShopDelivery.Ai;
+using ShopDelivery.Api.Auth;
 using ShopDelivery.Api.Budget;
 using ShopDelivery.Api.Data;
 using ShopDelivery.Api.Enrichment;
@@ -29,6 +33,43 @@ builder.Services.AddDbContext<ShopDbContext>(o =>
 });
 
 builder.Services.AddReceiptScanning(builder.Configuration);
+var useDevelopmentIdentity = builder.Environment.IsDevelopment()
+                             && builder.Configuration.GetValue("Authentication:UseDevelopmentIdentity", true);
+if (useDevelopmentIdentity)
+{
+    builder.Services
+        .AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
+        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(
+            DevelopmentAuthenticationHandler.SchemeName,
+            _ => { });
+}
+else
+{
+    var authority = builder.Configuration["Authentication:Authority"];
+    var audience = builder.Configuration["Authentication:Audience"];
+    if (string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(audience))
+    {
+        throw new InvalidOperationException(
+            "Authentication:Authority and Authentication:Audience are required outside local development.");
+    }
+
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.Authority = authority;
+            options.Audience = audience;
+            options.MapInboundClaims = false;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                NameClaimType = "name",
+                RoleClaimType = "role",
+            };
+        });
+}
+
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<CustomerIdentity>();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -68,7 +109,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors(); 
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", at = DateTimeOffset.UtcNow }))
    .WithName("HealthCheck");

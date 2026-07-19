@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using ShopDelivery.Web;
+using ShopDelivery.Web.Auth;
 using ShopDelivery.Web.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -14,9 +17,39 @@ var apiBaseUrl = ResolveApiBaseUrl(
     builder.HostEnvironment.BaseAddress,
     apiPort,
     builder.Configuration["ApiBaseUrl"]);
+builder.Configuration["ResolvedApiBaseUrl"] = apiBaseUrl;
 
-builder.Services.AddHttpClient<ShopApiClient>(client =>
+var apiClient = builder.Services.AddHttpClient<ShopApiClient>(client =>
     client.BaseAddress = new Uri(apiBaseUrl));
+
+if (builder.HostEnvironment.IsDevelopment())
+{
+    builder.Services.AddAuthorizationCore();
+    builder.Services.AddScoped<AuthenticationStateProvider, DevelopmentAuthenticationStateProvider>();
+}
+else
+{
+    var authority = builder.Configuration["Authentication:Authority"];
+    var clientId = builder.Configuration["Authentication:ClientId"];
+    var apiScope = builder.Configuration["Authentication:ApiScope"];
+    if (string.IsNullOrWhiteSpace(authority)
+        || string.IsNullOrWhiteSpace(clientId)
+        || string.IsNullOrWhiteSpace(apiScope))
+    {
+        throw new InvalidOperationException(
+            "Authentication:Authority, Authentication:ClientId, and Authentication:ApiScope are required.");
+    }
+
+    builder.Services.AddOidcAuthentication(options =>
+    {
+        options.ProviderOptions.Authority = authority;
+        options.ProviderOptions.ClientId = clientId;
+        options.ProviderOptions.ResponseType = "code";
+        options.ProviderOptions.DefaultScopes.Add(apiScope);
+    });
+    builder.Services.AddScoped<ApiAuthorizationMessageHandler>();
+    apiClient.AddHttpMessageHandler<ApiAuthorizationMessageHandler>();
+}
 
 await builder.Build().RunAsync();
 

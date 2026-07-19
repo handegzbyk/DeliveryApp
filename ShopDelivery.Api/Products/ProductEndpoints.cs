@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ShopDelivery.Api.Auth;
 using ShopDelivery.Api.Data;
 using ShopDelivery.Api.Enrichment;
 using ShopDelivery.Shared;
@@ -14,26 +15,46 @@ public static class ProductEndpoints
 {
     public static void MapProductEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/products").WithTags("Products");
+        var group = app.MapGroup("/api/products")
+            .WithTags("Products")
+            .RequireAuthorization();
 
-        group.MapGet("", async (ShopDbContext db, CancellationToken ct) =>
+        group.MapGet("", async (
+            HttpContext httpContext,
+            CustomerIdentity customerIdentity,
+            ShopDbContext db,
+            CancellationToken ct) =>
         {
-            var products = await db.Products
+            var customerId = customerIdentity.GetRequiredCustomerId(httpContext.User);
+            var productEntities = await db.Products
                 .AsNoTracking()
+                .Include(product => product.Brand)
                 .OrderBy(product => product.Name)
-                .Select(product => new ProductSummary(
-                    product.Id,
-                    product.Name,
-                    product.OpenFoodFactsCode,
-                    product.Brand == null ? null : product.Brand.Name,
-                    product.Category,
-                    product.ImageUrl,
-                    db.PriceObservations
-                        .Where(observation => observation.ProductId == product.Id)
-                        .OrderByDescending(observation => observation.Receipt.PurchasedAt)
-                        .Select(observation => (decimal?)observation.Price)
-                        .FirstOrDefault()))
                 .ToListAsync(ct);
+            var customerPrices = await db.PriceObservations
+                .AsNoTracking()
+                .Where(observation => observation.Receipt.CustomerId == customerId)
+                .Select(observation => new
+                {
+                    observation.ProductId,
+                    observation.Price,
+                    observation.Receipt.PurchasedAt,
+                    observation.Id,
+                })
+                .ToListAsync(ct);
+            var latestPrices = customerPrices
+                .GroupBy(observation => observation.ProductId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (decimal?)group
+                        .OrderByDescending(observation => observation.PurchasedAt)
+                        .ThenByDescending(observation => observation.Id)
+                        .First().Price);
+            var products = productEntities
+                .Select(product => Map(
+                    product,
+                    latestPrices.GetValueOrDefault(product.Id)))
+                .ToList();
 
             return Results.Ok(products);
         })
@@ -41,6 +62,8 @@ public static class ProductEndpoints
 
         group.MapPost("/import", async (
             ProductImportRequest request,
+            HttpContext httpContext,
+            CustomerIdentity customerIdentity,
             ShopDbContext db,
             IProductEnricher enricher,
             CancellationToken ct) =>
@@ -95,7 +118,8 @@ public static class ProductEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            var latestPrice = await LatestPriceAsync(db, product.Id, ct);
+            var customerId = customerIdentity.GetRequiredCustomerId(httpContext.User);
+            var latestPrice = await LatestPriceAsync(db, product.Id, customerId, ct);
             var result = Map(product, latestPrice);
 
             return created
@@ -227,13 +251,36 @@ public static class ProductEndpoints
     private static async Task<decimal?> LatestPriceAsync(
         ShopDbContext db,
         int productId,
-        CancellationToken ct) =>
-        await db.PriceObservations
+        string customerId,
+        CancellationToken ct)
+    {
+        var prices = db.PriceObservations
             .AsNoTracking()
-            .Where(observation => observation.ProductId == productId)
-            .OrderByDescending(observation => observation.Receipt.PurchasedAt)
+            .Where(observation => observation.ProductId == productId
+                                  && observation.Receipt.CustomerId == customerId);
+
+        if (!db.Database.IsSqlite())
+        {
+            return await prices
+                .OrderByDescending(observation => observation.Receipt.PurchasedAt)
+                .ThenByDescending(observation => observation.Id)
+                .Select(observation => (decimal?)observation.Price)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return (await prices
+                .Select(observation => new
+                {
+                    observation.Price,
+                    observation.Receipt.PurchasedAt,
+                    observation.Id,
+                })
+                .ToListAsync(ct))
+            .OrderByDescending(observation => observation.PurchasedAt)
+            .ThenByDescending(observation => observation.Id)
             .Select(observation => (decimal?)observation.Price)
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefault();
+    }
 
     private static ProductSummary Map(ProductEntity product, decimal? latestPrice) => new(
         product.Id,

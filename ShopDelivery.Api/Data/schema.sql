@@ -37,6 +37,14 @@ IF COL_LENGTH(N'Products', N'OpenFoodFactsCode') IS NULL
 ALTER TABLE [Products] ADD [OpenFoodFactsCode] nvarchar(64) NULL;
 GO
 
+IF OBJECT_ID(N'[CustomerBudgets]', N'U') IS NULL
+CREATE TABLE [CustomerBudgets] (
+    [CustomerId] nvarchar(64) NOT NULL,
+    [MonthlyBudget] decimal(18,2) NOT NULL,
+    CONSTRAINT [PK_CustomerBudgets] PRIMARY KEY ([CustomerId])
+);
+GO
+
 IF OBJECT_ID(N'[StoreProducts]', N'U') IS NULL
 CREATE TABLE [StoreProducts] (
     [Id] int NOT NULL IDENTITY,
@@ -53,12 +61,31 @@ GO
 IF OBJECT_ID(N'[Receipts]', N'U') IS NULL
 CREATE TABLE [Receipts] (
     [Id] int NOT NULL IDENTITY,
+    [CustomerId] nvarchar(64) NOT NULL,
     [StoreId] int NOT NULL,
     [PurchasedAt] datetimeoffset NOT NULL,
     [Total] decimal(18,2) NOT NULL,
     CONSTRAINT [PK_Receipts] PRIMARY KEY ([Id]),
     CONSTRAINT [FK_Receipts_Stores_StoreId] FOREIGN KEY ([StoreId]) REFERENCES [Stores] ([Id]) ON DELETE CASCADE
 );
+GO
+
+IF COL_LENGTH(N'Receipts', N'CustomerId') IS NULL
+ALTER TABLE [Receipts] ADD [CustomerId] nvarchar(64) NULL;
+GO
+
+UPDATE [Receipts]
+SET [CustomerId] = N'legacy-unassigned'
+WHERE [CustomerId] IS NULL OR LTRIM(RTRIM([CustomerId])) = N'';
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'[Receipts]')
+      AND name = N'CustomerId'
+      AND is_nullable = 1)
+ALTER TABLE [Receipts] ALTER COLUMN [CustomerId] nvarchar(64) NOT NULL;
 GO
 
 IF OBJECT_ID(N'[PriceObservations]', N'U') IS NULL
@@ -110,6 +137,10 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Receipts_StoreId')
 CREATE INDEX [IX_Receipts_StoreId] ON [Receipts] ([StoreId]);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Receipts_CustomerId_PurchasedAt')
+CREATE INDEX [IX_Receipts_CustomerId_PurchasedAt] ON [Receipts] ([CustomerId], [PurchasedAt]);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StoreProducts_ProductId')

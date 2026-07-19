@@ -14,6 +14,7 @@ public sealed class ShopDbContext : DbContext
     public DbSet<StoreProduct> StoreProducts => Set<StoreProduct>();
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<PriceObservation> PriceObservations => Set<PriceObservation>();
+    public DbSet<CustomerBudget> CustomerBudgets => Set<CustomerBudget>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,7 +22,14 @@ public sealed class ShopDbContext : DbContext
 
         // Money columns: pin precision so SQL Server doesn't warn about / silently truncate decimals.
         modelBuilder.Entity<Receipt>().Property(receipt => receipt.Total).HasPrecision(18, 2);
+        modelBuilder.Entity<Receipt>().Property(receipt => receipt.CustomerId).HasMaxLength(64);
+        modelBuilder.Entity<Receipt>()
+            .HasIndex(receipt => new { receipt.CustomerId, receipt.PurchasedAt });
         modelBuilder.Entity<PriceObservation>().Property(observation => observation.Price).HasPrecision(18, 2);
+
+        modelBuilder.Entity<CustomerBudget>().HasKey(budget => budget.CustomerId);
+        modelBuilder.Entity<CustomerBudget>().Property(budget => budget.CustomerId).HasMaxLength(64);
+        modelBuilder.Entity<CustomerBudget>().Property(budget => budget.MonthlyBudget).HasPrecision(18, 2);
 
         modelBuilder.Entity<Product>().Property(product => product.OpenFoodFactsCode).HasMaxLength(64);
         modelBuilder.Entity<Product>()
