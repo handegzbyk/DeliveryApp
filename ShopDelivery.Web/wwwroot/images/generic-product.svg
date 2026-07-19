@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Generic scanned product</title>
+  <desc id="desc">A simple grocery bag used when no product image is available.</desc>
+  <rect width="160" height="160" rx="28" fill="#eef3ea"/>
+  <path d="M46 57h68l-7 72H53l-7-72Z" fill="#f7f1dd" stroke="#315c47" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M62 62V48c0-11 8-19 18-19s18 8 18 19v14" fill="none" stroke="#315c47" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="80" cy="91" r="19" fill="#7eb779"/>
+  <path d="M72 92l6 6 12-15" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

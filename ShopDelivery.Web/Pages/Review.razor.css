@@ -166,7 +166,6 @@
     padding: .5rem .15rem .85rem;
     scroll-snap-type: inline mandatory;
     scrollbar-color: #9caf9f transparent;
-    touch-action: pan-x;
 }
 
 .candidate-card {
@@ -181,7 +180,6 @@
     padding: .6rem;
     position: relative;
     scroll-snap-align: start;
-    scroll-snap-stop: always;
     text-align: left;
     white-space: normal;
 }
@@ -198,17 +196,12 @@
     background: #f1f8f1;
 }
 
-.candidate-card.generic-choice {
-    background: #f5f3ed;
-    border-color: #d8d0bd;
-}
-
 .candidate-image {
     align-items: center;
     background: white;
     border-radius: 13px;
     display: flex;
-    height: 76px;
+    height: 88px;
     justify-content: center;
     overflow: hidden;
     width: 100%;
@@ -217,8 +210,8 @@
 .candidate-image img {
     display: block;
     height: auto;
-    max-height: 66px;
-    max-width: 76px;
+    max-height: 78px;
+    max-width: 92px;
     object-fit: contain;
     width: auto;
 }

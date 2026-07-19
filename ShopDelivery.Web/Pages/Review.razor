@@ -69,12 +69,12 @@
                     <strong>@row.Price.ToString("C") @(row.Quantity > 1 ? $"×{row.Quantity}" : "")</strong>
                 </div>
 
-                <p class="gallery-hint">Swipe sideways, then tap once to confirm. If the suggestion is wrong, choose “Not this”.</p>
+                <p class="gallery-hint">Swipe sideways, then tap once to confirm.</p>
                 <div class="candidate-gallery" role="list" aria-label="Product candidates">
                     @foreach (var candidate in row.Candidates)
                     {
                         <button type="button"
-                                class="candidate-card @(row.IsSuggested(candidate) ? "suggested" : "") @(candidate.ProductId is null ? "generic-choice" : "")"
+                                class="candidate-card @(row.IsSuggested(candidate) ? "suggested" : "")"
                                 @onclick="() => ConfirmCandidate(row, candidate)"
                                 role="listitem">
                             <span class="candidate-image">
@@ -84,12 +84,12 @@
                                 }
                                 else
                                 {
-                                    <span class="image-placeholder">No image</span>
+                                    <span class="image-placeholder">@(candidate.ProductId is null ? "New item" : "No image")</span>
                                 }
                             </span>
                             <span class="candidate-name">@candidate.Name</span>
                             <span class="candidate-action">
-                                @row.ActionText(candidate)
+                                @(candidate.ProductId is null ? "Keep receipt name" : "Choose & confirm")
                             </span>
                             @if (row.IsSuggested(candidate))
                             {
@@ -271,19 +271,11 @@
                 .ToList();
 
             if (candidates.All(candidate => candidate.ProductId is not null))
-                candidates.Add(new ProductCandidate(null, line.RawText, ProductImages.Generic, 0));
+                candidates.Add(new ProductCandidate(null, line.RawText, null, 0));
 
-            var generic = candidates.First(candidate => candidate.ProductId is null);
-            var catalogCandidates = candidates.Where(candidate => candidate.ProductId is not null).ToList();
-            var suggested = catalogCandidates.FirstOrDefault(candidate => candidate.ProductId == line.MatchedProductId);
-
-            // Keep the escape hatch immediately beside a confident suggestion. When matching is
-            // uncertain, make saving the scanned item the first and safest choice.
-            Candidates = suggested is null
-                ? [generic, .. catalogCandidates]
-                : [suggested, generic, .. catalogCandidates.Where(candidate => candidate.ProductId != suggested.ProductId)];
-
-            SelectedCandidate = suggested ?? generic;
+            Candidates = candidates;
+            SelectedCandidate = candidates.FirstOrDefault(candidate => candidate.ProductId == line.MatchedProductId)
+                                ?? candidates.FirstOrDefault();
         }
 
         public string RawText => _line.RawText;
@@ -298,12 +290,6 @@
         public bool IsSuggested(ProductCandidate candidate) =>
             SuggestedProductId is not null && candidate.ProductId == SuggestedProductId;
 
-        public string ActionText(ProductCandidate candidate) => candidate.ProductId is not null
-            ? "Choose & confirm"
-            : SuggestedProductId is not null
-                ? "Not this — save as scanned"
-                : "No match — save as scanned";
-
         public ConfirmLine ToConfirmLine() => new(
             RawText,
             Price,
@@ -311,8 +297,7 @@
             SelectedCandidate?.ProductId,
             SelectedName,
             null,
-            null,
-            LearnStoreAlias: SelectedCandidate?.ProductId is not null);
+            null);
     }
 
     private sealed record ConfirmedEntry(RowVm Row, int Index);
