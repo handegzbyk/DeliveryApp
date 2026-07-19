@@ -4,167 +4,301 @@
 @inject ShopApiClient Api
 @inject NavigationManager Nav
 
-<h3>Review receipt</h3>
+<PageTitle>Scan & confirm receipt</PageTitle>
 
-@if (_model is null)
-{
-    <p class="review-help">
-        Upload a receipt. The app reads the store name, matches each item against learned store names first,
-        then uses the OpenFoodFacts catalog and images for confirmation.
-    </p>
-    <InputFile OnChange="OnFile" accept="image/*" />
-    @if (_busy)
+<main class="receipt-review">
+    @if (_model is null)
     {
-        <p>Scanning receipt, matching store items, and loading product images…</p>
+        <section class="upload-panel">
+            <div class="eyebrow">Made for your basket</div>
+            <h1>Turn a receipt into your personal budget.</h1>
+            <p>
+                Take a photo or choose an image. We will read the receipt, suggest products, and let you
+                confirm each item with a quick horizontal swipe.
+            </p>
+            <label class="receipt-picker">
+                <span>@(_busy ? "Reading your receipt…" : "Choose receipt image")</span>
+                <InputFile OnChange="OnFile" accept="image/*" capture="environment" disabled="@_busy" />
+            </label>
+        </section>
     }
-}
-else
-{
-    <section class="receipt-summary">
-        <div>
-            <div class="label">Store</div>
-            <strong>@_model.StoreName</strong>
-        </div>
-        <div>
-            <div class="label">Date</div>
-            <strong>@_model.PurchasedAt.ToString("d")</strong>
-        </div>
-        <div>
-            <div class="label">Total</div>
-            <strong>@_model.Total.ToString("C")</strong>
-        </div>
-    </section>
-
-    <p class="review-help">
-        Confirmed lines save the receipt name under <b>@_model.StoreName</b>, so future scans match this store's
-        wording faster. Prices are saved for this store and date.
-    </p>
-
-    @foreach (var row in _rows)
+    else
     {
-        <div class="review-row">
-            <div class="raw">
-                <span>@row.RawText</span>
-                <strong>@row.Price.ToString("C") @(row.Quantity > 1 ? $"×{row.Quantity}" : "")</strong>
+        <header class="review-heading">
+            <div>
+                <div class="eyebrow">Personal receipt review</div>
+                <h1>Confirm what is yours.</h1>
+                <p>Swipe through the small product cards and tap the right match.</p>
             </div>
+            <button type="button" class="quiet-button" @onclick="StartOver" disabled="@_busy">Use another receipt</button>
+        </header>
 
-            @if (row.IsMatched)
-            {
-                @* MATCHED → show the selected product image too *@
-                <div class="matched-product">
-                    <div class="matched-image">
-                        @if (!string.IsNullOrWhiteSpace(row.SelectedCandidate?.ImageUrl))
-                        {
-                            <img src="@row.SelectedCandidate.ImageUrl" alt="@row.SelectedName" />
-                        }
-                        else
-                        {
-                            <div class="image-placeholder">No image</div>
-                        }
-                    </div>
+        <section class="receipt-summary" aria-label="Receipt summary">
+            <div>
+                <span>Store</span>
+                <strong>@_model.StoreName</strong>
+            </div>
+            <div>
+                <span>Date</span>
+                <strong>@_model.PurchasedAt.ToString("d")</strong>
+            </div>
+            <div>
+                <span>Total</span>
+                <strong>@_model.Total.ToString("C")</strong>
+            </div>
+        </section>
+
+        <section class="confirmation-progress" aria-label="Confirmation progress">
+            <div>
+                <strong>@ConfirmedCount of @_rows.Count confirmed</strong>
+                <span>@(AllConfirmed ? "Ready for your budget" : "Tap a product card to continue")</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+                <div class="progress-fill" style="width:@ProgressPercent%"></div>
+            </div>
+        </section>
+
+        @if (ActiveRow is { } row)
+        {
+            <section class="confirmation-stage">
+                <div class="item-heading">
                     <div>
-                        <div class="matched">✔ Matched</div>
-                        <div class="matched-name">@row.SelectedName</div>
-                        <div class="hint">Will save as a @(_model.StoreName) store item on confirmation.</div>
-                        <button class="link" @onclick="() => row.IsMatched = false">Change match</button>
+                        <span class="item-count">Item @(_activeIndex + 1) of @_rows.Count</span>
+                        <h2>@row.RawText</h2>
                     </div>
+                    <strong>@row.Price.ToString("C") @(row.Quantity > 1 ? $"×{row.Quantity}" : "")</strong>
                 </div>
-            }
-            else
-            {
-                @* UNMATCHED → sliding gallery of candidates *@
-                <div class="hint">Choose the right product image/name, or keep the new item card.</div>
-                <div class="gallery">
-                    @foreach (var c in row.Candidates)
+
+                <p class="gallery-hint">Swipe sideways, then tap once to confirm.</p>
+                <div class="candidate-gallery" role="list" aria-label="Product candidates">
+                    @foreach (var candidate in row.Candidates)
                     {
-                        <div class="card @(row.SelectedCandidate == c ? "selected" : "")"
-                             @onclick="() => row.Select(c)">
-                            @if (!string.IsNullOrEmpty(c.ImageUrl))
+                        <button type="button"
+                                class="candidate-card @(row.IsSuggested(candidate) ? "suggested" : "")"
+                                @onclick="() => ConfirmCandidate(row, candidate)"
+                                role="listitem">
+                            <span class="candidate-image">
+                                @if (!string.IsNullOrWhiteSpace(candidate.ImageUrl))
+                                {
+                                    <img src="@candidate.ImageUrl" alt="" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span class="image-placeholder">@(candidate.ProductId is null ? "New item" : "No image")</span>
+                                }
+                            </span>
+                            <span class="candidate-name">@candidate.Name</span>
+                            <span class="candidate-action">
+                                @(candidate.ProductId is null ? "Keep receipt name" : "Choose & confirm")
+                            </span>
+                            @if (row.IsSuggested(candidate))
                             {
-                                <img src="@c.ImageUrl" alt="@c.Name" />
+                                <span class="suggested-badge">Best match</span>
                             }
-                            else
-                            {
-                                <div class="image-placeholder">No image</div>
-                            }
-                            <div class="name">@(c.ProductId is null ? $"+ New: {c.Name}" : c.Name)</div>
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+        else if (AllConfirmed)
+        {
+            <section class="ready-panel">
+                <div class="ready-icon">✓</div>
+                <div>
+                    <div class="eyebrow">Everything confirmed</div>
+                    <h2>Your receipt is ready.</h2>
+                    <p>Add it to your budget to update this month’s spend and category insights.</p>
+                </div>
+            </section>
+        }
+
+        @if (ConfirmedRows.Any())
+        {
+            <section class="confirmed-section">
+                <h2>Confirmed items</h2>
+                <div class="confirmed-list">
+                    @foreach (var entry in ConfirmedRows)
+                    {
+                        <div class="confirmed-item">
+                            <span class="confirmed-thumbnail">
+                                @if (!string.IsNullOrWhiteSpace(entry.Row.SelectedCandidate?.ImageUrl))
+                                {
+                                    <img src="@entry.Row.SelectedCandidate.ImageUrl" alt="" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span>✓</span>
+                                }
+                            </span>
+                            <span>
+                                <strong>@entry.Row.SelectedName</strong>
+                                <small>@entry.Row.RawText</small>
+                            </span>
+                            <button type="button" class="text-button" @onclick="() => Reopen(entry.Index)" disabled="@_busy">Change</button>
                         </div>
                     }
                 </div>
+            </section>
+        }
 
-                @* brand chips for the chosen (new) product *@
-                @if (row.SelectedCandidate?.ProductId is null)
-                {
-                    <div class="brand-slider">
-                        @foreach (var b in row.BrandOptions)
-                        {
-                            <button class="chip @(row.SelectedBrandId == b.BrandId ? "selected" : "")"
-                                    @onclick="() => row.SelectedBrandId = b.BrandId">@b.Name</button>
-                        }
-                        <input @bind="row.NewBrandName" placeholder="+ new brand" />
-                    </div>
-                }
-            }
+        <div class="budget-action">
+            <div>
+                <strong>@(AllConfirmed ? "All set" : $"{_rows.Count - ConfirmedCount} item(s) left")</strong>
+                <span>The receipt is saved only after every item is confirmed.</span>
+            </div>
+            <button type="button" class="primary" @onclick="AddToBudget" disabled="@(!AllConfirmed || _busy)">
+                @(_busy ? "Adding…" : "Add to my budget")
+            </button>
         </div>
     }
 
-    <button class="primary" @onclick="Confirm" disabled="@_busy">Confirm basket</button>
-}
+    @if (_error is not null)
+    {
+        <p class="error-message" role="alert">@_error</p>
+    }
+</main>
 
 @code {
-    ScanReviewResponse? _model;
-    List<RowVm> _rows = new();
-    bool _busy;
+    private ScanReviewResponse? _model;
+    private List<RowVm> _rows = [];
+    private int _activeIndex;
+    private bool _busy;
+    private string? _error;
 
-    async Task OnFile(InputFileChangeEventArgs e)
+    private RowVm? ActiveRow =>
+        _activeIndex >= 0 && _activeIndex < _rows.Count && !_rows[_activeIndex].IsConfirmed
+            ? _rows[_activeIndex]
+            : null;
+
+    private int ConfirmedCount => _rows.Count(row => row.IsConfirmed);
+    private bool AllConfirmed => _rows.Count > 0 && ConfirmedCount == _rows.Count;
+    private decimal ProgressPercent => _rows.Count == 0 ? 0 : Math.Round((decimal)ConfirmedCount / _rows.Count * 100, 2);
+    private IEnumerable<ConfirmedEntry> ConfirmedRows =>
+        _rows.Select((row, index) => new ConfirmedEntry(row, index)).Where(entry => entry.Row.IsConfirmed);
+
+    private async Task OnFile(InputFileChangeEventArgs e)
     {
         _busy = true;
-        _model = await Api.ReviewAsync(e.File);
-        _rows = _model.Lines.Select(l => new RowVm(l)).ToList();
-        _busy = false;
-    }
+        _error = null;
 
-    async Task Confirm()
-    {
-        _busy = true;
-        var req = new ConfirmRequest(
-            _model!.StoreName, _model.PurchasedAt, _model.Total,
-            _rows.Select(r => r.ToConfirmLine()).ToList());
-        var receiptId = await Api.ConfirmAsync(req);
-        _busy = false;
-        Nav.NavigateTo($"/budget/{receiptId}");   // → next: budget page
-    }
-
-    class RowVm
-    {
-        readonly ReviewLine _l;
-        public RowVm(ReviewLine l)
+        try
         {
-            _l = l;
-            IsMatched = l.MatchedProductId is not null;
-            SelectedCandidate = l.Candidates
-                .FirstOrDefault(c => c.ProductId == l.MatchedProductId) ?? l.Candidates.FirstOrDefault();
+            _model = await Api.ReviewAsync(e.File);
+            _rows = _model.Lines.Select(line => new RowVm(line)).ToList();
+            _activeIndex = 0;
+        }
+        catch (Exception ex)
+        {
+            _model = null;
+            _rows = [];
+            _error = $"We couldn't read that receipt. {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ConfirmCandidate(RowVm row, ProductCandidate candidate)
+    {
+        row.SelectedCandidate = candidate;
+        row.IsConfirmed = true;
+        MoveToNextUnconfirmed();
+    }
+
+    private void Reopen(int index)
+    {
+        _rows[index].IsConfirmed = false;
+        _activeIndex = index;
+    }
+
+    private void MoveToNextUnconfirmed()
+    {
+        var next = _rows.FindIndex(_activeIndex + 1, row => !row.IsConfirmed);
+        if (next < 0)
+            next = _rows.FindIndex(row => !row.IsConfirmed);
+
+        _activeIndex = next;
+    }
+
+    private async Task AddToBudget()
+    {
+        if (_model is null || !AllConfirmed)
+            return;
+
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var request = new ConfirmRequest(
+                _model.StoreName,
+                _model.PurchasedAt,
+                _model.Total,
+                _rows.Select(row => row.ToConfirmLine()).ToList());
+            var receiptId = await Api.ConfirmAsync(request);
+            Nav.NavigateTo($"/budget/{receiptId}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Your choices are still here, but the receipt could not be added yet. {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void StartOver()
+    {
+        _model = null;
+        _rows = [];
+        _activeIndex = 0;
+        _error = null;
+    }
+
+    private sealed class RowVm
+    {
+        private readonly ReviewLine _line;
+
+        public RowVm(ReviewLine line)
+        {
+            _line = line;
+            SuggestedProductId = line.MatchedProductId;
+            var candidates = line.Candidates
+                .GroupBy(candidate => candidate.ProductId)
+                .Select(group => group.First())
+                .ToList();
+
+            if (candidates.All(candidate => candidate.ProductId is not null))
+                candidates.Add(new ProductCandidate(null, line.RawText, null, 0));
+
+            Candidates = candidates;
+            SelectedCandidate = candidates.FirstOrDefault(candidate => candidate.ProductId == line.MatchedProductId)
+                                ?? candidates.FirstOrDefault();
         }
 
-        public string RawText => _l.RawText;
-        public decimal Price => _l.Price;
-        public int Quantity => _l.Quantity;
-        public List<ProductCandidate> Candidates => _l.Candidates;
-        public List<BrandOption> BrandOptions => _l.BrandOptions;
-
-        public bool IsMatched { get; set; }
+        public string RawText => _line.RawText;
+        public decimal Price => _line.Price;
+        public int Quantity => _line.Quantity;
+        public int? SuggestedProductId { get; }
+        public List<ProductCandidate> Candidates { get; }
+        public bool IsConfirmed { get; set; }
         public ProductCandidate? SelectedCandidate { get; set; }
-        public int? SelectedBrandId { get; set; }
-        public string? NewBrandName { get; set; }
-
         public string SelectedName => SelectedCandidate?.Name ?? RawText;
 
-        public void Select(ProductCandidate c) => SelectedCandidate = c;
+        public bool IsSuggested(ProductCandidate candidate) =>
+            SuggestedProductId is not null && candidate.ProductId == SuggestedProductId;
 
         public ConfirmLine ToConfirmLine() => new(
-            RawText, Price, Quantity,
+            RawText,
+            Price,
+            Quantity,
             SelectedCandidate?.ProductId,
-            SelectedCandidate?.Name ?? RawText,
-            SelectedBrandId, NewBrandName);
+            SelectedName,
+            null,
+            null);
     }
+
+    private sealed record ConfirmedEntry(RowVm Row, int Index);
 }

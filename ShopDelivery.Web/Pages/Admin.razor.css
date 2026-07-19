@@ -1,0 +1,68 @@
+.admin-hero {
+    background: linear-gradient(135deg, #17211c, #394940);
+    border-radius: 24px;
+    color: white;
+    margin-bottom: 1rem;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.admin-hero h1 {
+    margin: .35rem 0;
+}
+
+.admin-hero p {
+    color: rgba(255, 255, 255, .72);
+    max-width: 760px;
+}
+
+.admin-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    margin-top: 1rem;
+}
+
+.admin-actions {
+    display: grid;
+    gap: .8rem;
+}
+
+.import-row {
+    display: flex;
+    gap: .5rem;
+}
+
+.import-row input {
+    border: 1px solid #cfd7cd;
+    border-radius: 999px;
+    min-width: 0;
+    padding: .65rem .85rem;
+    width: 100%;
+}
+
+.admin-links {
+    display: grid;
+    gap: .6rem;
+}
+
+.admin-links a {
+    background: #f4f7f3;
+    border: 1px solid #e0e6dd;
+    border-radius: 14px;
+    display: grid;
+    padding: .8rem;
+    text-decoration: none;
+}
+
+.admin-links span {
+    color: #66756b;
+    font-size: .86rem;
+}
+
+.status-message {
+    background: #edf7ee;
+    border-radius: 12px;
+    color: #176b45;
+    margin-top: .8rem;
+    padding: .7rem;
+}

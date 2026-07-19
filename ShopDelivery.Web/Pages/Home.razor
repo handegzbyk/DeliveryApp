@@ -2,75 +2,74 @@
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 
-<PageTitle>SmartBasket</PageTitle>
+<PageTitle>SmartBasket · Your grocery rhythm</PageTitle>
 
 <section class="hero">
-    <div class="eyebrow">Smart grocery operating system</div>
-    <h1>Scan receipts, learn stores, plan baskets, and route delivery.</h1>
+    <div class="eyebrow">Your grocery rhythm</div>
+    <h1>A basket that gets more personal with every receipt.</h1>
     <p>
-        Products are seeded from OpenFoodFacts, receipt names are learned per market,
-        and confirmed baskets become expense insights plus future recommendations.
+        Confirm what you bought, keep your monthly budget current, and receive suggestions shaped by your own habits.
     </p>
-    <a class="button-primary" href="scan">Scan receipt</a>
+    <a class="button-primary" href="scan">Scan a receipt</a>
 </section>
 
 @if (_busy)
 {
-    <p><em>Loading overview…</em></p>
+    <p><em>Preparing your overview…</em></p>
+}
+else if (_latestExpense is null)
+{
+    <section class="app-card">
+        <div class="eyebrow">Start your story</div>
+        <h2>Your budget is ready for its first receipt.</h2>
+        <p class="muted">Scan, confirm each product, and the basket will be added to your personal monthly view.</p>
+        <a class="button-primary" href="scan">Add my first receipt</a>
+    </section>
 }
 else
 {
     <section class="dashboard-grid">
         <article class="app-card">
-            <div class="eyebrow">Catalog</div>
-            <div class="metric">@_products.Count</div>
-            <p class="muted">OpenFoodFacts products ready for receipt matching.</p>
-            <button class="primary" @onclick="SeedCatalog" disabled="@_seeding">
-                @(_seeding ? "Seeding…" : "Seed starter catalog")
-            </button>
-            @if (_message is not null)
-            {
-                <p class="muted">@_message</p>
-            }
+            <div class="eyebrow">Spent this month</div>
+            <div class="metric">@_latestExpense.Dashboard.Spent.ToString("C")</div>
+            <p class="muted">Across your confirmed receipts.</p>
         </article>
-
         <article class="app-card">
-            <div class="eyebrow">Expense</div>
-            <h2>@(_latestExpense?.Total.ToString("C") ?? "No basket yet")</h2>
-            <p class="muted">
-                @(_latestExpense is null
-                    ? "Confirm a scanned receipt to unlock the budget dashboard."
-                    : $"{_latestExpense.StoreName} · {_latestExpense.PurchasedAt:d}")
-            </p>
-            <a href="expenses">Open expense dashboard</a>
+            <div class="eyebrow">Still available</div>
+            <div class="metric">@_latestExpense.Dashboard.Remaining.ToString("C")</div>
+            <p class="muted">From @_latestExpense.Dashboard.MonthlyBudget.ToString("C") this month.</p>
         </article>
-
         <article class="app-card">
-            <div class="eyebrow">Warnings</div>
-            <h2>@WarningCount</h2>
-            <p class="muted">Products missing images, categories, prices, or OpenFoodFacts codes.</p>
-            <a href="catalog-health">Review catalog health</a>
+            <div class="eyebrow">Latest basket</div>
+            <h2>@_latestExpense.Total.ToString("C")</h2>
+            <p class="muted">@_latestExpense.StoreName · @_latestExpense.PurchasedAt.ToString("d")</p>
+            <a href="@($"budget/{_latestExpense.ReceiptId}")">Open basket detail</a>
         </article>
     </section>
 
-    <section class="feature-grid">
-        <article class="app-card">
-            <h2>Earn loyalty points</h2>
-            <p class="muted">Reward receipt scans, confirmed matches, and basket delivery orders.</p>
-            <a href="loyalty">Open loyalty</a>
-        </article>
-        <article class="app-card">
-            <h2>Get recommendations</h2>
-            <p class="muted">Use your catalog and basket history to suggest useful grocery items.</p>
-            <a href="recommendations">Open recommendations</a>
-        </article>
-        <article class="app-card">
-            <h2>Shop and deliver</h2>
-            <p class="muted">Create a shopping list, compare nearby markets, and prepare delivery.</p>
-            <a href="shop">Open basket builder</a>
-        </article>
-    </section>
+    <p><a class="button-primary" href="expenses">Open my full budget</a></p>
 }
+
+<section class="feature-grid">
+    <article class="app-card">
+        <div class="eyebrow">For your next trip</div>
+        <h2>Personal recommendations</h2>
+        <p class="muted">Suggestions become more relevant as your confirmed basket history grows.</p>
+        <a href="recommendations">See my recommendations</a>
+    </article>
+    <article class="app-card">
+        <div class="eyebrow">Your rewards</div>
+        <h2>Loyalty that follows you</h2>
+        <p class="muted">Turn receipt scans and confirmed matches into visible progress.</p>
+        <a href="loyalty">Open my loyalty</a>
+    </article>
+    <article class="app-card">
+        <div class="eyebrow">Your next basket</div>
+        <h2>Plan before you shop</h2>
+        <p class="muted">Build a list from your habits and prepare it for shopping or delivery.</p>
+        <a href="shop">Plan a basket</a>
+    </article>
+</section>
 
 @if (_error is not null)
 {
@@ -78,65 +77,25 @@ else
 }
 
 @code {
-    private List<ProductSummary> _products = [];
     private BasketExpenseResponse? _latestExpense;
-    private string? _message;
     private string? _error;
     private bool _busy;
-    private bool _seeding;
-
-    private int WarningCount =>
-        _products.Count(product =>
-            string.IsNullOrWhiteSpace(product.ImageUrl)
-            || string.IsNullOrWhiteSpace(product.Category)
-            || string.IsNullOrWhiteSpace(product.OpenFoodFactsCode)
-            || product.LatestPrice is null);
 
     protected override async Task OnInitializedAsync()
     {
-        await Load();
-    }
-
-    private async Task Load()
-    {
         _busy = true;
-        _error = null;
 
         try
         {
-            _products = (await Api.GetProductsAsync()).ToList();
             _latestExpense = await Api.GetLatestExpenseAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Couldn't load overview: {ex.Message}";
+            _error = $"Your overview could not be loaded. {ex.Message}";
         }
         finally
         {
             _busy = false;
         }
     }
-
-    private async Task SeedCatalog()
-    {
-        _seeding = true;
-        _message = null;
-        _error = null;
-
-        try
-        {
-            var result = await Api.SeedProductCatalogAsync();
-            _message = $"{result.Created} created, {result.Updated} updated, {result.Skipped} already existed.";
-            _products = (await Api.GetProductsAsync()).ToList();
-        }
-        catch (Exception ex)
-        {
-            _error = $"Couldn't seed catalog: {ex.Message}";
-        }
-        finally
-        {
-            _seeding = false;
-        }
-    }
-
 }
