@@ -1,0 +1,11 @@
+@inject NavigationManager Navigation
+
+<p role="status">Redirecting to sign in…</p>
+
+@code {
+    protected override void OnInitialized()
+    {
+        var returnUrl = Uri.EscapeDataString(Navigation.Uri);
+        Navigation.NavigateTo($"authentication/login?returnUrl={returnUrl}");
+    }
+}

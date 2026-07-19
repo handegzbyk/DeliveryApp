@@ -72,6 +72,12 @@ public sealed class ShopApiClient(HttpClient http)
         return await response.Content.ReadFromJsonAsync<BasketExpenseResponse>(cancellationToken: ct);
     }
 
+    public async Task UpdateMonthlyBudgetAsync(decimal monthlyBudget, CancellationToken ct = default)
+    {
+        var response = await http.PutAsJsonAsync("api/budget", new UpdateBudgetRequest(monthlyBudget), ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     private record ConfirmResult(int Id);
 }
 

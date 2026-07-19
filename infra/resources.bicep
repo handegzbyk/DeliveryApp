@@ -12,6 +12,12 @@ param principalId string
 @description('Principal type of user or app')
 param principalType string
 
+@description('OpenID Connect authority used to validate customer access tokens')
+param authenticationAuthority string
+
+@description('Audience expected in customer access tokens')
+param authenticationAudience string
+
 @description('SQL Server administrator login name')
 param sqlAdminLogin string = 'shopadmin'
 
@@ -148,6 +154,14 @@ module shopdeliveryApi 'br/public:avm/res/app/container-app:0.8.0' = {
           {
             name: 'PORT'
             value: '8080'
+          }
+          {
+            name: 'Authentication__Authority'
+            value: authenticationAuthority
+          }
+          {
+            name: 'Authentication__Audience'
+            value: authenticationAudience
           }
           {
             // Passwordless: the container uses its managed identity (AZURE_CLIENT_ID) to authenticate.

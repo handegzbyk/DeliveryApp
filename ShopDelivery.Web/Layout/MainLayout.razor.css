@@ -33,6 +33,12 @@ main {
     text-decoration: none;
 }
 
+.customer-actions {
+    align-items: center;
+    display: flex;
+    gap: .7rem;
+}
+
 .content {
     padding-top: 1.5rem;
 }

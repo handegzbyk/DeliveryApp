@@ -47,12 +47,20 @@ public class StoreProduct
 public class Receipt
 {
     public int Id { get; set; }
+    // Stable, pseudonymous id derived server-side from the authenticated issuer + subject.
+    public string CustomerId { get; set; } = "";
     public int StoreId { get; set; }
     public Store Store { get; set; } = null!;
     public DateTimeOffset PurchasedAt { get; set; }
     public decimal Total { get; set; }
 
     public ICollection<PriceObservation> Lines { get; set; } = new List<PriceObservation>();
+}
+
+public class CustomerBudget
+{
+    public string CustomerId { get; set; } = "";
+    public decimal MonthlyBudget { get; set; } = 500m;
 }
 
 // One scanned line = one price point for a product at a store/date

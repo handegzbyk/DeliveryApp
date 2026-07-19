@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;   // ToListAsync, FirstOrDefaultAsync, FirstAsync
 using ShopDelivery.Ai;
+using ShopDelivery.Api.Auth;
 using ShopDelivery.Api.Data;
 using ShopDelivery.Api.Enrichment;
 using ShopDelivery.Api.Products;
@@ -23,6 +24,7 @@ public static class ReceiptEndpoints
             return Results.Ok(scanned);
         })
         .DisableAntiforgery()
+        .RequireAuthorization()
         .WithName("ScanReceipt");
 
         // NEW: build review model from OCR result + suggestions
@@ -63,11 +65,18 @@ public static class ReceiptEndpoints
                     scan.Total ?? 0m,
                     lines));
             })
-            .DisableAntiforgery().WithName("ReviewReceipt");
+            .DisableAntiforgery()
+            .RequireAuthorization()
+            .WithName("ReviewReceipt");
 
         // NEW: persist a reviewed receipt, then enqueue new products for background enrichment.
         app.MapPost("/api/receipts/confirm", async (
-                ConfirmRequest req, ShopDbContext db, IEnrichmentQueue queue, CancellationToken ct) =>
+                ConfirmRequest req,
+                HttpContext httpContext,
+                CustomerIdentity customerIdentity,
+                ShopDbContext db,
+                IEnrichmentQueue queue,
+                CancellationToken ct) =>
             {
                 if (req.Lines is null || req.Lines.Count == 0)
                     return Results.BadRequest("No lines to confirm.");
@@ -80,6 +89,7 @@ public static class ReceiptEndpoints
 
                 var receipt = new Receipt
                 {
+                    CustomerId = customerIdentity.GetRequiredCustomerId(httpContext.User),
                     Store = store,
                     PurchasedAt = req.PurchasedAt,
                     Total = req.Total,
@@ -141,7 +151,9 @@ public static class ReceiptEndpoints
 
                 return Results.Ok(new { receipt.Id });
             })
-            .DisableAntiforgery().WithName("ConfirmReceipt");
+            .DisableAntiforgery()
+            .RequireAuthorization()
+            .WithName("ConfirmReceipt");
         }
 
     // Resolve the brand for a new product: existing id, reused/new name, or none.

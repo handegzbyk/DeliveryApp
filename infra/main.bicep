@@ -18,6 +18,12 @@ param principalId string
 @description('Principal type of user or app')
 param principalType string
 
+@description('OpenID Connect authority used to validate customer access tokens')
+param authenticationAuthority string
+
+@description('Audience expected in customer access tokens')
+param authenticationAudience string
+
 @secure()
 @description('SQL Server administrator password — stored in azd env, never in source control')
 param sqlAdminPassword string
@@ -46,6 +52,8 @@ module resources 'resources.bicep' = {
     tags: tags
     principalId: principalId
     principalType: principalType
+    authenticationAuthority: authenticationAuthority
+    authenticationAudience: authenticationAudience
     shopdeliveryApiExists: shopdeliveryApiExists
     sqlAdminPassword: sqlAdminPassword
   }

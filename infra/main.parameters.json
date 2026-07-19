@@ -16,6 +16,12 @@
       },
       "principalType": {
         "value": "${AZURE_PRINCIPAL_TYPE}"
+      },
+      "authenticationAuthority": {
+        "value": "${AUTHENTICATION_AUTHORITY}"
+      },
+      "authenticationAudience": {
+        "value": "${AUTHENTICATION_AUDIENCE}"
       }
     }
 }

@@ -1,0 +1,14 @@
+@inject IWebAssemblyHostEnvironment Environment
+
+<AuthorizeView>
+    <Authorized Context="authentication">
+        <span class="customer-name">@(authentication.User.Identity?.Name ?? "Customer")</span>
+        @if (!Environment.IsDevelopment())
+        {
+            <a href="authentication/logout">Sign out</a>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <a href="authentication/login">Sign in</a>
+    </NotAuthorized>
+</AuthorizeView>

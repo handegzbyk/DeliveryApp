@@ -28,3 +28,5 @@ public record BudgetDashboardSummary(
     List<BudgetBreakdown> ByCategory);
 
 public record BudgetBreakdown(string Name, decimal Amount);
+
+public record UpdateBudgetRequest(decimal MonthlyBudget);

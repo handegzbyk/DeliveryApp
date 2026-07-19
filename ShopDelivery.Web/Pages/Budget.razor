@@ -1,4 +1,5 @@
 @page "/budget/{ReceiptId:int}"
+@attribute [Authorize]
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 @inject NavigationManager Nav
@@ -48,6 +49,13 @@ else if (_expense is not null)
         </div>
         <div class="progress-track">
             <div class="progress-fill" style="width:@BudgetPercent%"></div>
+        </div>
+        <div class="budget-setting">
+            <label for="monthly-budget">My monthly budget</label>
+            <InputNumber id="monthly-budget" @bind-Value="_monthlyBudget" min="1" max="1000000" step="10" />
+            <button type="button" @onclick="SaveMonthlyBudget" disabled="@_savingBudget">
+                @(_savingBudget ? "Saving…" : "Save budget")
+            </button>
         </div>
     </section>
 
@@ -126,6 +134,8 @@ else if (_expense is not null)
     private BasketExpenseResponse? _expense;
     private string? _error;
     private bool _busy;
+    private bool _savingBudget;
+    private decimal _monthlyBudget;
 
     private decimal BudgetPercent =>
         _expense is null || _expense.Dashboard.MonthlyBudget <= 0
@@ -145,6 +155,7 @@ else if (_expense is not null)
         try
         {
             _expense = await Api.GetReceiptExpenseAsync(ReceiptId);
+            _monthlyBudget = _expense.Dashboard.MonthlyBudget;
         }
         catch (Exception ex)
         {
@@ -153,6 +164,31 @@ else if (_expense is not null)
         finally
         {
             _busy = false;
+        }
+    }
+
+    private async Task SaveMonthlyBudget()
+    {
+        if (_monthlyBudget <= 0)
+        {
+            _error = "Monthly budget must be greater than zero.";
+            return;
+        }
+
+        _savingBudget = true;
+        _error = null;
+        try
+        {
+            await Api.UpdateMonthlyBudgetAsync(_monthlyBudget);
+            _expense = await Api.GetReceiptExpenseAsync(ReceiptId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Couldn't save your monthly budget: {ex.Message}";
+        }
+        finally
+        {
+            _savingBudget = false;
         }
     }
 
