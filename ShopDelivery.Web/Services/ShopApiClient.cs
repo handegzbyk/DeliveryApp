@@ -13,18 +13,59 @@ public sealed class ShopApiClient(HttpClient http)
     public async Task<IReadOnlyList<ProductSummary>> GetProductsAsync(CancellationToken ct = default) =>
         await http.GetFromJsonAsync<List<ProductSummary>>("api/products", ct) ?? [];
 
-    public async Task<ProductSummary> ImportProductAsync(string query, CancellationToken ct = default)
+    public async Task<ProductSearchResponse> SearchProductsAsync(string query, CancellationToken ct = default)
     {
-        var response = await http.PostAsJsonAsync("api/products/import", new ProductImportRequest(query), ct);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ProductSummary>(cancellationToken: ct))!;
+        return (await http.GetFromJsonAsync<ProductSearchResponse>(
+            $"api/products/search?q={Uri.EscapeDataString(query)}",
+            ct))!;
     }
 
-    public async Task<ProductSeedResponse> SeedProductCatalogAsync(CancellationToken ct = default)
+    public async Task<ProductSearchResponse> SearchProductImageAsync(
+        IBrowserFile file,
+        CancellationToken ct = default)
     {
-        var response = await http.PostAsJsonAsync("api/products/seed", new ProductSeedRequest(), ct);
+        using var content = new MultipartFormDataContent();
+        using var stream = file.OpenReadStream(10 * 1024 * 1024, ct);
+        content.Add(new StreamContent(stream), "file", file.Name);
+        var response = await http.PostAsync("api/products/search-image", content, ct);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ProductSeedResponse>(cancellationToken: ct))!;
+        return (await response.Content.ReadFromJsonAsync<ProductSearchResponse>(cancellationToken: ct))!;
+    }
+
+    public async Task<ProductProposalResponse> ProposeProductAsync(
+        ProductProposalRequest request,
+        CancellationToken ct = default)
+    {
+        var response = await http.PostAsJsonAsync("api/products/proposals", request, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ProductProposalResponse>(cancellationToken: ct))!;
+    }
+
+    public async Task<List<AdminReviewItem>> GetProductReviewsAsync(CancellationToken ct = default) =>
+        await http.GetFromJsonAsync<List<AdminReviewItem>>("api/admin/product-reviews", ct) ?? [];
+
+    public async Task DecideProductReviewAsync(
+        long reviewId,
+        AdminReviewDecision decision,
+        CancellationToken ct = default)
+    {
+        var response = await http.PostAsJsonAsync(
+            $"api/admin/product-reviews/{reviewId}/decision",
+            decision,
+            ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task UploadProductImageAsync(
+        int productId,
+        IBrowserFile file,
+        CancellationToken ct = default)
+    {
+        using var content = new MultipartFormDataContent();
+        using var stream = file.OpenReadStream(10 * 1024 * 1024, ct);
+        content.Add(new StreamContent(stream), "file", file.Name);
+        var response = await http.PostAsync($"api/admin/products/{productId}/images", content, ct);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<ScannedReceipt?> ScanReceiptAsync(

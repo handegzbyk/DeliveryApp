@@ -1,64 +1,58 @@
-# Recreating the database in Azure SQL
+# Catalog database
 
-The API builds its schema from the EF Core model in `ShopDbContext`. There are **no EF
-migrations** — on startup `Program.cs` calls `DatabaseSchemaInitializer.EnsureAsync()`, which
-uses `EnsureCreated()` for empty databases and then applies small idempotent schema updates for
-existing databases. It does not create the Azure SQL *database* itself. So recreating after a
-`DROP DATABASE` is two steps:
-**(1) create an empty database, then (2) create the tables.**
+EF Core migrations are the only schema source of truth. The API applies pending migrations at
+startup. Do not maintain a second hand-written SQL schema.
 
-## Step 1 — Recreate the empty database
+## Ownership and workflow
 
-Azure Portal: *SQL server → Databases → Create*, or with the CLI:
+- Global master data: `Brands`, `Products`, `ImageAssets`, `ProductImages`, `Stores`,
+  `StoreProducts`, alias history, and the administrator review queue.
+- Customer data: `Receipts`, `PriceObservations`, and `CustomerBudgets`. Every API query for these
+  records derives the customer key from the validated token; request payloads cannot choose it.
+- A scraped catalog is matched by GTIN, stable catalog key, then normalized name and brand.
+- Uncertain receipt/manual products use `ReviewRequired` and remain usable for that customer's
+  receipt with the generic image. An administrator can correct and confirm, merge, or reject them.
+- A customer's “Not this” choice never silently changes an existing shared alias. It records
+  history, marks the alias disputed, and creates an administrator review item.
+
+## Images
+
+Images are isolated in `ImageAssets`, deduplicated by SHA-256, and linked to products. Import keeps
+the smaller of the already-compressed source and a lossless WebP representation. This does not
+invent missing pixels: the browser decodes the selected compressed bytes at display time. Normal
+product and matching queries select only the image id, never the BLOB. `/api/product-images/{id}`
+streams the BLOB with an immutable cache header and ETag.
+
+## Local SQLite
+
+With no SQL Server connection configured, Development uses `ShopDelivery.Api/shopdelivery.db`.
+To import a reviewed scraper artifact:
 
 ```bash
-az sql db create \
-  --resource-group <your-rg> \
-  --server        <your-sql-server> \
-  --name          shopdelivery \
-  --service-objective Basic          # smallest/cheapest; adjust as needed
+dotnet run --project ShopDelivery.Api -- \
+  --import-catalog ShopDelivery.CatalogScraper/artifacts/catalogs/edeka24/catalog.json \
+  --sqlite ShopDelivery.Api/shopdelivery.db
 ```
 
-## Step 2 — Create the tables (pick ONE)
+The import is idempotent. Running it again updates existing products and creates no duplicate
+images or aliases.
 
-**A. Run the SQL script (no app run required).**
-Open *Azure Portal → your SQL database → Query editor*, paste the contents of
-[`schema.sql`](./schema.sql), and run. (Or `sqlcmd -S <server>.database.windows.net -d shopdelivery -U <user> -P <pwd> -i schema.sql`.)
-The script is guarded with `IF OBJECT_ID(...) IS NULL`, so it is safe to re-run.
+`--sqlite` takes precedence over a configured SQL Server connection, so this command cannot
+accidentally import the local artifact into Azure. Omit `--sqlite` only when you intentionally want
+the provider selected from `ConnectionStrings`.
 
-**B. Let the app build it via `EnsureCreated()`.**
-Point the `Sql` connection string at the new (empty) database and start the API — it will
-create every table on the empty database automatically.
+## Azure SQL
 
-## Product domain
+Set `ConnectionStrings__Sql` on the API container. Startup applies the same versioned migrations
+to an empty or existing Azure SQL database. For local administrative migration commands:
 
-- `Products` are canonical products. The initial catalog comes from OpenFoodFacts, keyed when
-  available by `OpenFoodFactsCode`.
-- `StoreProducts` are store-specific aliases/SKUs for canonical products. Receipt names can
-  differ between stores while still pointing to one product.
-- `PriceObservations` are the historical price facts from confirmed receipts. They link to the
-  canonical product, receipt/store, and the learned store-specific alias when available.
+```bash
+dotnet tool install --global dotnet-ef
+dotnet ef migrations has-pending-model-changes \
+  --project ShopDelivery.Api --startup-project ShopDelivery.Api
+dotnet ef database update \
+  --project ShopDelivery.Api --startup-project ShopDelivery.Api
+```
 
-## Setting the `Sql` connection string
-
-`Program.cs` selects the provider by connection string: if `ConnectionStrings:Sql` is set it
-uses Azure SQL; otherwise SQLite (Development) or in-memory.
-
-- **Local run:** the project has a `UserSecretsId`, so keep the secret out of source control:
-  ```bash
-  cd ShopDelivery.Api
-  dotnet user-secrets set "ConnectionStrings:Sql" \
-    "Server=tcp:<server>.database.windows.net,1433;Initial Catalog=shopdelivery;Authentication=Active Directory Default;Encrypt=True;"
-  ```
-  (Or use SQL auth: `...;User ID=<user>;Password=<pwd>;Encrypt=True;`.)
-
-- **Deployed (Container App):** set an app setting / env var named `ConnectionStrings__Sql`
-  (double underscore) with the same value.
-
-## Notes
-
-- Keep `schema.sql` in sync with the model. Regenerate with
-  `db.Database.GenerateCreateScript()` if entities change.
-- For repeatable, versioned schema changes, consider switching from `EnsureCreated()` to EF
-  migrations (`dotnet ef migrations add InitialCreate` + `dotnet ef database update`). That is
-  a larger change and is not set up today.
+Create a new migration whenever `ShopDbContext` changes; review it for both SQLite and SQL Server
+before deployment.

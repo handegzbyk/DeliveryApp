@@ -89,8 +89,9 @@
                                 }
                             </span>
                             <span class="candidate-name">@candidate.Name</span>
+                            <span class="candidate-reason">@candidate.MatchReason</span>
                             <span class="candidate-action">
-                                @(candidate.ProductId is null ? "Keep receipt name" : "Choose & confirm")
+                                @(candidate.ProductId is null ? "Not this — review as new" : "Choose & confirm")
                             </span>
                             @if (row.IsSuggested(candidate))
                             {
@@ -297,8 +298,8 @@
             Quantity,
             SelectedCandidate?.ProductId,
             SelectedName,
-            null,
-            null);
+            SelectedCandidate?.ProductId is null,
+            SelectedCandidate?.ProductId != SuggestedProductId ? SuggestedProductId : null);
     }
 
     private sealed record ConfirmedEntry(RowVm Row, int Index);

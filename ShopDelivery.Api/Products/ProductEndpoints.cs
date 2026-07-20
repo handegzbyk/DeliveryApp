@@ -1,13 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using ShopDelivery.Ai;
 using ShopDelivery.Api.Auth;
 using ShopDelivery.Api.Data;
-using ShopDelivery.Api.Enrichment;
+using ShopDelivery.Api.Receipts;
 using ShopDelivery.Shared;
-
-using BrandEntity = global::Brand;
-using ProductEntity = global::Product;
-using StoreEntity = global::Store;
-using StoreProductEntity = global::StoreProduct;
 
 namespace ShopDelivery.Api.Products;
 
@@ -15,279 +11,505 @@ public static class ProductEndpoints
 {
     public static void MapProductEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/products")
+        app.MapGet("/api/product-images/{imageId:long}", async (
+                long imageId,
+                HttpRequest request,
+                HttpResponse response,
+                IProductImageStore imageStore,
+                CancellationToken ct) =>
+            {
+                if (!await imageStore.WriteResponseAsync(imageId, request, response, ct))
+                    response.StatusCode = StatusCodes.Status404NotFound;
+            })
+            .AllowAnonymous()
+            .WithName("GetProductImage");
+
+        var products = app.MapGroup("/api/products")
             .WithTags("Products")
             .RequireAuthorization();
 
-        group.MapGet("", async (
+        products.MapGet("", async (
             HttpContext httpContext,
             CustomerIdentity customerIdentity,
             ShopDbContext db,
             CancellationToken ct) =>
         {
             var customerId = customerIdentity.GetRequiredCustomerId(httpContext.User);
-            var productEntities = await db.Products
+            var rows = await db.Products
                 .AsNoTracking()
-                .Include(product => product.Brand)
+                .Where(product => product.Status == ProductStatus.Confirmed)
                 .OrderBy(product => product.Name)
+                .Select(product => new ProductRow(
+                    product.Id,
+                    product.Name,
+                    product.Gtin,
+                    product.Brand != null ? product.Brand.Name : null,
+                    product.Category,
+                    product.Status,
+                    product.Images.Where(image => image.IsPrimary)
+                        .Select(image => (long?)image.ImageAssetId)
+                        .FirstOrDefault()))
                 .ToListAsync(ct);
-            var customerPrices = await db.PriceObservations
-                .AsNoTracking()
-                .Where(observation => observation.Receipt.CustomerId == customerId)
-                .Select(observation => new
-                {
-                    observation.ProductId,
-                    observation.Price,
-                    observation.Receipt.PurchasedAt,
-                    observation.Id,
-                })
-                .ToListAsync(ct);
-            var latestPrices = customerPrices
-                .GroupBy(observation => observation.ProductId)
-                .ToDictionary(
-                    group => group.Key,
-                    group => (decimal?)group
-                        .OrderByDescending(observation => observation.PurchasedAt)
-                        .ThenByDescending(observation => observation.Id)
-                        .First().Price);
-            var products = productEntities
-                .Select(product => Map(
-                    product,
-                    latestPrices.GetValueOrDefault(product.Id)))
-                .ToList();
+            var latestPrices = await LatestPricesAsync(customerId, db, ct);
+            return Results.Ok(rows.Select(row => Map(row, httpContext.Request, latestPrices.GetValueOrDefault(row.Id))));
+        });
 
-            return Results.Ok(products);
-        })
-        .WithName("ListProducts");
+        products.MapGet("/search", async (
+            string q,
+            HttpRequest request,
+            ProductMatcher matcher,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(q))
+                return Results.BadRequest("Search text is required.");
+            return Results.Ok(await matcher.SearchAsync(q, request, ct));
+        });
 
-        group.MapPost("/import", async (
-            ProductImportRequest request,
+        products.MapPost("/search-image", async (
+                IFormFile file,
+                HttpRequest request,
+                ProductTextExtractor extractor,
+                ProductMatcher matcher,
+                CancellationToken ct) =>
+            {
+                if (file.Length == 0 || file.Length > 10_000_000)
+                    return Results.BadRequest("Image must be between 1 byte and 10 MB.");
+                await using var stream = file.OpenReadStream();
+                var text = await extractor.ExtractAsync(stream, ct);
+                if (string.IsNullOrWhiteSpace(text))
+                    return Results.NotFound("No searchable text was found in the image.");
+                return Results.Ok(await matcher.SearchAsync(text, request, ct));
+            })
+            .DisableAntiforgery();
+
+        products.MapPost("/proposals", async (
+            ProductProposalRequest proposal,
             HttpContext httpContext,
             CustomerIdentity customerIdentity,
+            ProductMatcher matcher,
             ShopDbContext db,
-            IProductEnricher enricher,
             CancellationToken ct) =>
         {
-            var query = NormalizeOptional(request.Query);
-            if (query is null)
-                return Results.BadRequest("Product query is required.");
+            if (string.IsNullOrWhiteSpace(proposal.Name))
+                return Results.BadRequest("Product name is required.");
 
-            var info = await enricher.EnrichAsync(query, ct);
-            if (info is null)
-                return Results.NotFound($"No product found for '{query}'.");
-
-            var externalId = NormalizeOptional(info.ExternalId);
-            var productName = FirstNonEmpty(info.CanonicalName, query)!;
-            var brandName = NormalizeBrandName(info.BrandName);
-            var product = await FindProductAsync(db, externalId, productName, brandName, ct);
-            var brand = await ResolveBrandAsync(brandName, db, ct);
-            var created = product is null;
-
-            if (product is null)
+            var gtin = CatalogTextNormalizer.NormalizeGtin(proposal.Gtin);
+            if (gtin is not null)
             {
-                product = new ProductEntity
-                {
-                    Name = productName,
-                    OpenFoodFactsCode = externalId,
-                    Brand = brand,
-                    Category = NormalizeOptional(info.Category),
-                    ImageUrl = NormalizeOptional(info.ImageUrl),
-                };
-                db.Products.Add(product);
-            }
-            else
-            {
-                product.OpenFoodFactsCode ??= externalId;
-                product.Category ??= NormalizeOptional(info.Category);
-                product.ImageUrl ??= NormalizeOptional(info.ImageUrl);
-                product.Brand ??= brand;
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.StoreName))
-            {
-                var store = await ResolveStoreAsync(request.StoreName, db, ct);
-                var aliasName = FirstNonEmpty(request.StoreProductName, query)!;
-                await UpsertStoreProductAsync(
-                    db,
-                    store,
-                    product,
-                    aliasName,
-                    request.StoreProductCode,
+                var byGtin = await db.Products.FirstOrDefaultAsync(
+                    product => product.Gtin == gtin && product.Status == ProductStatus.Confirmed,
                     ct);
+                if (byGtin is not null)
+                {
+                    var summary = await SummaryAsync(byGtin.Id, httpContext.Request, db, ct);
+                    return Results.Ok(new ProductProposalResponse(false, null, summary, []));
+                }
             }
 
-            await db.SaveChangesAsync(ct);
+            var search = await matcher.SearchAsync(proposal.Name, httpContext.Request, ct);
+            if (search.ExactMatch || !proposal.CreateWhenUncertain)
+                return Results.Ok(new ProductProposalResponse(false, null, null, search.Candidates));
 
             var customerId = customerIdentity.GetRequiredCustomerId(httpContext.User);
-            var latestPrice = await LatestPriceAsync(db, product.Id, customerId, ct);
-            var result = Map(product, latestPrice);
+            var product = new Product
+            {
+                Gtin = gtin,
+                Name = proposal.Name.Trim(),
+                NormalizedName = CatalogTextNormalizer.Normalize(proposal.Name),
+                Category = NormalizeOptional(proposal.Category),
+                Status = ProductStatus.ReviewRequired,
+            };
+            if (!string.IsNullOrWhiteSpace(proposal.BrandName))
+                product.Brand = await ResolveBrandAsync(proposal.BrandName, db, ct);
+            var review = new ProductReviewItem
+            {
+                ProposedProduct = product,
+                CandidateProductId = search.Candidates.FirstOrDefault()?.ProductId,
+                RawName = proposal.Name.Trim(),
+                NormalizedName = product.NormalizedName,
+                SourceType = "Manual",
+                SubmittedByCustomerIdHash = customerId,
+            };
+            db.ProductReviewItems.Add(review);
+            await db.SaveChangesAsync(ct);
+            return Results.Created(
+                $"/api/admin/product-reviews/{review.Id}",
+                new ProductProposalResponse(
+                    true,
+                    review.Id,
+                    await SummaryAsync(product.Id, httpContext.Request, db, ct),
+                    search.Candidates));
+        });
 
-            return created
-                ? Results.Created($"/api/products/{product.Id}", result)
-                : Results.Ok(result);
-        })
-        .WithName("ImportProduct");
+        var admin = app.MapGroup("/api/admin")
+            .WithTags("Catalog administration")
+            .RequireAuthorization("CatalogAdmin");
 
-        group.MapPost("/seed", async (
-            ProductSeedRequest request,
-            ProductCatalogSeeder seeder,
+        admin.MapPost("/products/{productId:int}/images", async (
+                int productId,
+                IFormFile file,
+                HttpRequest request,
+                IProductImageStore imageStore,
+                ShopDbContext db,
+                CancellationToken ct) =>
+            {
+                if (file.Length == 0 || file.Length > 10_000_000)
+                    return Results.BadRequest("Image must be between 1 byte and 10 MB.");
+                var product = await db.Products
+                    .Include(item => item.Images)
+                    .FirstOrDefaultAsync(item => item.Id == productId
+                                                 && item.Status != ProductStatus.Merged
+                                                 && item.Status != ProductStatus.Rejected,
+                        ct);
+                if (product is null)
+                    return Results.NotFound();
+
+                await using var stream = file.OpenReadStream();
+                var stored = await imageStore.SaveAsync(stream, ct);
+                var imageId = stored.PendingEntity?.Id ?? stored.Id;
+                var existingLink = stored.PendingEntity is null
+                    ? product.Images.FirstOrDefault(link => link.ImageAssetId == stored.Id)
+                    : null;
+                foreach (var current in product.Images)
+                    current.IsPrimary = false;
+                if (existingLink is not null)
+                {
+                    existingLink.IsPrimary = true;
+                    imageId = existingLink.ImageAssetId;
+                }
+                else
+                {
+                    var link = new ProductImage { Product = product, IsPrimary = true };
+                    if (stored.PendingEntity is not null)
+                        link.ImageAsset = stored.PendingEntity;
+                    else
+                        link.ImageAssetId = stored.Id;
+                    product.Images.Add(link);
+                }
+                await db.SaveChangesAsync(ct);
+                imageId = existingLink?.ImageAssetId
+                          ?? product.Images.First(link => link.IsPrimary).ImageAssetId;
+
+                return Results.Ok(new
+                {
+                    imageId,
+                    imageUrl = ProductImageUrls.For(request, imageId),
+                });
+            })
+            .DisableAntiforgery();
+
+        admin.MapGet("/product-reviews", async (ShopDbContext db, CancellationToken ct) =>
+        {
+            var query = db.ProductReviewItems
+                .AsNoTracking()
+                .Where(item => item.Status == ProductReviewStatus.Pending)
+                .Select(item => new AdminReviewItem(
+                    item.Id,
+                    item.ProposedProductId,
+                    item.ProposedProduct.Name,
+                    item.ProposedProduct.Gtin,
+                    item.ProposedProduct.Brand != null ? item.ProposedProduct.Brand.Name : null,
+                    item.ProposedProduct.Category,
+                    item.ProposedProduct.Images.Any(),
+                    item.CandidateProductId,
+                    item.CandidateProduct != null ? item.CandidateProduct.Name : null,
+                    item.RawName,
+                    item.SourceType,
+                    item.SourceReference,
+                    item.CreatedAt));
+            var reviews = db.Database.IsSqlite()
+                ? (await query.ToListAsync(ct)).OrderBy(item => item.CreatedAt).ToList()
+                : await query.OrderBy(item => item.CreatedAt).ToListAsync(ct);
+            return Results.Ok(reviews);
+        });
+
+        admin.MapPost("/product-reviews/{reviewId:long}/decision", async (
+            long reviewId,
+            AdminReviewDecision decision,
+            ShopDbContext db,
             CancellationToken ct) =>
         {
-            var result = await seeder.SeedAsync(request, ct);
-            return Results.Ok(result);
-        })
-        .WithName("SeedProductCatalog");
-    }
+            var review = await db.ProductReviewItems
+                .Include(item => item.ProposedProduct)
+                .FirstOrDefaultAsync(item => item.Id == reviewId, ct);
+            if (review is null || review.Status != ProductReviewStatus.Pending)
+                return Results.NotFound();
 
-    private static async Task<ProductEntity?> FindProductAsync(
-        ShopDbContext db,
-        string? externalId,
-        string productName,
-        string? brandName,
-        CancellationToken ct)
-    {
-        if (externalId is not null)
-        {
-            var productByExternalId = await db.Products
-                .Include(product => product.Brand)
-                .FirstOrDefaultAsync(product => product.OpenFoodFactsCode == externalId, ct);
-
-            if (productByExternalId is not null)
-                return productByExternalId;
-        }
-
-        var normalizedName = productName.ToLower();
-        var products = db.Products
-            .Include(product => product.Brand)
-            .Where(product => product.Name.ToLower() == normalizedName);
-
-        if (brandName is null)
-            return await products.FirstOrDefaultAsync(product => product.BrandId == null, ct);
-
-        var normalizedBrandName = brandName.ToLower();
-        return await products.FirstOrDefaultAsync(
-            product => product.Brand != null && product.Brand.Name.ToLower() == normalizedBrandName,
-            ct);
-    }
-
-    private static async Task<BrandEntity?> ResolveBrandAsync(
-        string? rawBrandName,
-        ShopDbContext db,
-        CancellationToken ct)
-    {
-        var brandName = NormalizeBrandName(rawBrandName);
-        if (brandName is null)
-            return null;
-
-        var normalizedBrandName = brandName.ToLower();
-        return await db.Brands.FirstOrDefaultAsync(brand => brand.Name.ToLower() == normalizedBrandName, ct)
-               ?? new BrandEntity { Name = brandName };
-    }
-
-    private static async Task<StoreEntity> ResolveStoreAsync(
-        string rawStoreName,
-        ShopDbContext db,
-        CancellationToken ct)
-    {
-        var storeName = NormalizeOptional(rawStoreName) ?? "Unknown store";
-        var normalizedStoreName = storeName.ToLower();
-        return await db.Stores.FirstOrDefaultAsync(store => store.Name.ToLower() == normalizedStoreName, ct)
-               ?? new StoreEntity { Name = storeName };
-    }
-
-    private static async Task UpsertStoreProductAsync(
-        ShopDbContext db,
-        StoreEntity store,
-        ProductEntity product,
-        string aliasName,
-        string? rawStoreProductCode,
-        CancellationToken ct)
-    {
-        var storeProductCode = NormalizeOptional(rawStoreProductCode);
-        var normalizedAliasName = aliasName.ToLower();
-        StoreProductEntity? storeProduct = null;
-
-        if (store.Id > 0 && storeProductCode is not null)
-        {
-            storeProduct = await db.StoreProducts.FirstOrDefaultAsync(
-                alias => alias.StoreId == store.Id && alias.StoreProductCode == storeProductCode,
-                ct);
-        }
-
-        if (store.Id > 0 && storeProduct is null)
-        {
-            storeProduct = await db.StoreProducts.FirstOrDefaultAsync(
-                alias => alias.StoreId == store.Id && alias.Name.ToLower() == normalizedAliasName,
-                ct);
-        }
-
-        if (storeProduct is null)
-        {
-            db.StoreProducts.Add(new StoreProductEntity
+            var action = decision.Action.Trim().ToLowerInvariant();
+            var aliasReview = review.SourceType is "AliasCorrection" or "CatalogAliasConflict";
+            switch (action)
             {
-                Store = store,
-                Product = product,
-                Name = aliasName,
-                StoreProductCode = storeProductCode,
-            });
-            return;
-        }
+                case "confirm":
+                    try
+                    {
+                        await ApplyCorrectionsAsync(review.ProposedProduct, decision, db, ct);
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        return Results.Conflict(exception.Message);
+                    }
+                    if (aliasReview)
+                    {
+                        if (!await ApplyAliasDecisionAsync(review, acceptCorrection: true, MatchDecisionKind.Corrected, db, ct))
+                            return Results.Conflict("The store alias for this review no longer exists.");
+                        review.Status = ProductReviewStatus.Corrected;
+                    }
+                    else
+                    {
+                        review.ProposedProduct.Status = ProductStatus.Confirmed;
+                        await db.StoreProducts
+                            .Where(alias => alias.ProductId == review.ProposedProductId
+                                            && alias.Status == StoreAliasStatus.Provisional)
+                            .ExecuteUpdateAsync(
+                                update => update.SetProperty(alias => alias.Status, StoreAliasStatus.Confirmed),
+                                ct);
+                        review.Status = ProductReviewStatus.ConfirmedNew;
+                    }
+                    break;
+                case "merge":
+                    if (decision.TargetProductId is not { } targetId || targetId == review.ProposedProductId)
+                        return Results.BadRequest("A different target product is required for merge.");
+                    var target = await db.Products.FirstOrDefaultAsync(
+                        product => product.Id == targetId && product.Status == ProductStatus.Confirmed,
+                        ct);
+                    if (target is null)
+                        return Results.BadRequest("Target product is unavailable.");
+                    if (aliasReview
+                        && !await ApplyAliasDecisionAsync(review, acceptCorrection: false, MatchDecisionKind.Merged, db, ct))
+                    {
+                        return Results.Conflict("The store alias for this review no longer exists.");
+                    }
+                    await MergeAsync(review.ProposedProduct, target, db, ct);
+                    review.Status = ProductReviewStatus.Merged;
+                    break;
+                case "reject":
+                    if (aliasReview)
+                    {
+                        if (!await ApplyAliasDecisionAsync(review, acceptCorrection: false, MatchDecisionKind.Rejected, db, ct))
+                            return Results.Conflict("The store alias for this review no longer exists.");
+                    }
+                    else
+                    {
+                        review.ProposedProduct.Status = ProductStatus.Rejected;
+                        await db.StoreProducts
+                            .Where(alias => alias.ProductId == review.ProposedProductId)
+                            .ExecuteUpdateAsync(
+                                update => update.SetProperty(alias => alias.Status, StoreAliasStatus.Rejected),
+                                ct);
+                    }
+                    review.Status = ProductReviewStatus.Rejected;
+                    break;
+                default:
+                    return Results.BadRequest("Action must be confirm, merge, or reject.");
+            }
 
-        storeProduct.Product = product;
-        storeProduct.StoreProductCode ??= storeProductCode;
+            review.AdminNote = NormalizeOptional(decision.Note);
+            review.ReviewedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
     }
 
-    private static string? NormalizeBrandName(string? rawBrandName) =>
-        rawBrandName?
-            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault();
+    private static async Task<bool> ApplyAliasDecisionAsync(
+        ProductReviewItem review,
+        bool acceptCorrection,
+        MatchDecisionKind decision,
+        ShopDbContext db,
+        CancellationToken ct)
+    {
+        var aliasId = ParseAliasId(review.SourceReference);
+        var alias = aliasId is { } id
+            ? await db.StoreProducts.FirstOrDefaultAsync(item => item.Id == id, ct)
+            : await db.StoreProducts.FirstOrDefaultAsync(
+                item => item.NormalizedName == review.NormalizedName
+                        && item.ProductId == review.CandidateProductId,
+                ct);
+        if (alias is null)
+            return false;
+
+        var previousProductId = alias.ProductId;
+        var newProductId = acceptCorrection ? review.ProposedProductId : previousProductId;
+        alias.ProductId = newProductId;
+        alias.Status = StoreAliasStatus.Confirmed;
+        alias.LastSeenAt = DateTimeOffset.UtcNow;
+        db.StoreProductMatchHistory.Add(new StoreProductMatchHistory
+        {
+            StoreProductId = alias.Id,
+            PreviousProductId = previousProductId,
+            NewProductId = newProductId,
+            Decision = decision,
+            Note = acceptCorrection
+                ? "Administrator accepted the customer/catalog correction."
+                : "Administrator retained the existing mapping.",
+        });
+        return true;
+    }
+
+    private static long? ParseAliasId(string? sourceReference)
+    {
+        const string prefix = "store-alias:";
+        return sourceReference?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) == true
+               && long.TryParse(sourceReference[prefix.Length..], out var id)
+            ? id
+            : null;
+    }
+
+    private static async Task ApplyCorrectionsAsync(
+        Product product,
+        AdminReviewDecision decision,
+        ShopDbContext db,
+        CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(decision.CorrectedName))
+        {
+            product.Name = decision.CorrectedName.Trim();
+            product.NormalizedName = CatalogTextNormalizer.Normalize(product.Name);
+        }
+
+        var gtin = CatalogTextNormalizer.NormalizeGtin(decision.CorrectedGtin);
+        if (gtin is not null && await db.Products.AnyAsync(other => other.Id != product.Id && other.Gtin == gtin, ct))
+            throw new InvalidOperationException("GTIN already belongs to another product.");
+        product.Gtin = gtin ?? product.Gtin;
+        product.Category = NormalizeOptional(decision.Category) ?? product.Category;
+        if (!string.IsNullOrWhiteSpace(decision.BrandName))
+            product.Brand = await ResolveBrandAsync(decision.BrandName, db, ct);
+        product.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static async Task MergeAsync(
+        Product proposed,
+        Product target,
+        ShopDbContext db,
+        CancellationToken ct)
+    {
+        await db.PriceObservations
+            .Where(observation => observation.ProductId == proposed.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(observation => observation.ProductId, target.Id), ct);
+        var aliases = await db.StoreProducts
+            .AsNoTracking()
+            .Where(alias => alias.ProductId == proposed.Id)
+            .Select(alias => alias.Id)
+            .ToListAsync(ct);
+        foreach (var aliasId in aliases)
+        {
+            db.StoreProductMatchHistory.Add(new StoreProductMatchHistory
+            {
+                StoreProductId = aliasId,
+                PreviousProductId = proposed.Id,
+                NewProductId = target.Id,
+                Decision = MatchDecisionKind.Merged,
+                Note = "Administrator merged duplicate master products.",
+            });
+        }
+        await db.StoreProducts
+            .Where(alias => alias.ProductId == proposed.Id)
+            .ExecuteUpdateAsync(
+                update => update
+                    .SetProperty(alias => alias.ProductId, target.Id)
+                    .SetProperty(alias => alias.Status, StoreAliasStatus.Confirmed),
+                ct);
+
+        var targetHasPrimary = await db.ProductImages.AnyAsync(
+            image => image.ProductId == target.Id && image.IsPrimary,
+            ct);
+        var proposedImages = await db.ProductImages.Where(image => image.ProductId == proposed.Id).ToListAsync(ct);
+        foreach (var image in proposedImages)
+        {
+            if (await db.ProductImages.AnyAsync(
+                    targetImage => targetImage.ProductId == target.Id
+                                   && targetImage.ImageAssetId == image.ImageAssetId,
+                    ct))
+            {
+                db.ProductImages.Remove(image);
+                continue;
+            }
+            image.ProductId = target.Id;
+            if (targetHasPrimary)
+                image.IsPrimary = false;
+            else if (image.IsPrimary)
+                targetHasPrimary = true;
+        }
+
+        proposed.Status = ProductStatus.Merged;
+        proposed.MergedIntoProductId = target.Id;
+        proposed.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static async Task<Dictionary<int, decimal?>> LatestPricesAsync(
+        string customerId,
+        ShopDbContext db,
+        CancellationToken ct)
+    {
+        var rows = await db.PriceObservations
+            .AsNoTracking()
+            .Where(observation => observation.Receipt.CustomerId == customerId)
+            .Select(observation => new
+            {
+                observation.ProductId,
+                observation.Price,
+                observation.Receipt.PurchasedAt,
+                observation.Id,
+            })
+            .ToListAsync(ct);
+        return rows.GroupBy(row => row.ProductId).ToDictionary(
+            group => group.Key,
+            group => (decimal?)group.OrderByDescending(row => row.PurchasedAt)
+                .ThenByDescending(row => row.Id)
+                .First().Price);
+    }
+
+    private static async Task<ProductSummary?> SummaryAsync(
+        int productId,
+        HttpRequest request,
+        ShopDbContext db,
+        CancellationToken ct)
+    {
+        var row = await db.Products.AsNoTracking()
+            .Where(product => product.Id == productId)
+            .Select(product => new ProductRow(
+                product.Id,
+                product.Name,
+                product.Gtin,
+                product.Brand != null ? product.Brand.Name : null,
+                product.Category,
+                product.Status,
+                product.Images.Where(image => image.IsPrimary)
+                    .Select(image => (long?)image.ImageAssetId).FirstOrDefault()))
+            .FirstOrDefaultAsync(ct);
+        return row is null ? null : Map(row, request, null);
+    }
+
+    private static ProductSummary Map(ProductRow row, HttpRequest request, decimal? latestPrice) => new(
+        row.Id,
+        row.Name,
+        row.Gtin,
+        row.BrandName,
+        row.Category,
+        ProductImageUrls.For(request, row.ImageAssetId),
+        row.ImageAssetId is not null,
+        row.Status.ToString(),
+        latestPrice);
+
+    private static async Task<Brand> ResolveBrandAsync(
+        string rawName,
+        ShopDbContext db,
+        CancellationToken ct)
+    {
+        var name = rawName.Trim();
+        var normalized = CatalogTextNormalizer.Normalize(name);
+        return await db.Brands.FirstOrDefaultAsync(brand => brand.NormalizedName == normalized, ct)
+               ?? new Brand { Name = name, NormalizedName = normalized };
+    }
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string? FirstNonEmpty(params string?[] values) =>
-        values.Select(NormalizeOptional).FirstOrDefault(value => value is not null);
-
-    private static async Task<decimal?> LatestPriceAsync(
-        ShopDbContext db,
-        int productId,
-        string customerId,
-        CancellationToken ct)
-    {
-        var prices = db.PriceObservations
-            .AsNoTracking()
-            .Where(observation => observation.ProductId == productId
-                                  && observation.Receipt.CustomerId == customerId);
-
-        if (!db.Database.IsSqlite())
-        {
-            return await prices
-                .OrderByDescending(observation => observation.Receipt.PurchasedAt)
-                .ThenByDescending(observation => observation.Id)
-                .Select(observation => (decimal?)observation.Price)
-                .FirstOrDefaultAsync(ct);
-        }
-
-        return (await prices
-                .Select(observation => new
-                {
-                    observation.Price,
-                    observation.Receipt.PurchasedAt,
-                    observation.Id,
-                })
-                .ToListAsync(ct))
-            .OrderByDescending(observation => observation.PurchasedAt)
-            .ThenByDescending(observation => observation.Id)
-            .Select(observation => (decimal?)observation.Price)
-            .FirstOrDefault();
-    }
-
-    private static ProductSummary Map(ProductEntity product, decimal? latestPrice) => new(
-        product.Id,
-        product.Name,
-        product.OpenFoodFactsCode,
-        product.Brand?.Name,
-        product.Category,
-        product.ImageUrl,
-        latestPrice);
+    private sealed record ProductRow(
+        int Id,
+        string Name,
+        string? Gtin,
+        string? BrandName,
+        string? Category,
+        ProductStatus Status,
+        long? ImageAssetId);
 }

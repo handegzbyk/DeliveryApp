@@ -27,6 +27,7 @@ public sealed class DevelopmentAuthenticationHandler(
             new Claim("sub", customer, ClaimValueTypes.String, "development"),
             new Claim("iss", "development"),
             new Claim(ClaimTypes.Name, customer),
+            new Claim(ClaimTypes.Role, "admin"),
         };
         var identity = new ClaimsIdentity(claims, SchemeName, ClaimTypes.Name, ClaimTypes.Role);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);

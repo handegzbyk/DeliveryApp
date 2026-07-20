@@ -17,11 +17,14 @@ public static class AiServiceExtensions
             // Not configured (e.g. fresh Codespace) — register a stub so the API still boots.
             services.AddSingleton<ReceiptExtractor>(_ =>
                 throw new InvalidOperationException("Document Intelligence is not configured."));
+            services.AddSingleton<ProductTextExtractor>(_ =>
+                throw new InvalidOperationException("Document Intelligence is not configured."));
             return services;
         }
 
         services.AddSingleton(new DocumentIntelligenceClient(new Uri(endpoint), new AzureKeyCredential(key)));
         services.AddSingleton<ReceiptExtractor>();
+        services.AddSingleton<ProductTextExtractor>();
         return services;
     }
 }

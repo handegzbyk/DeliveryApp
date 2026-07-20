@@ -31,10 +31,17 @@
             <NavLink class="nav-link" href="shop">Shop & baskets</NavLink>
         </div>
 
-        <div class="nav-section admin-section">Administration</div>
-        <div class="nav-item px-3 admin-link">
-            <NavLink class="nav-link" href="admin">Master data</NavLink>
-        </div>
+        <AuthorizeView Roles="admin">
+            <Authorized>
+                <div class="nav-section admin-section">Administration</div>
+                <div class="nav-item px-3 admin-link">
+                    <NavLink class="nav-link" href="admin">Master data</NavLink>
+                </div>
+                <div class="nav-item px-3 admin-link">
+                    <NavLink class="nav-link" href="catalog-health">Catalog health</NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </nav>
 </div>
 

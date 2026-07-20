@@ -43,7 +43,16 @@ ScaffoldingReadMe.txt
 # appsettings with local/user configuration
 appsettings.Development.json
 appsettings.*.user.json
+
+# Local catalog scraper output
+ShopDelivery.CatalogScraper/output/
+ShopDelivery.CatalogScraper/artifacts/
 *.local.json
+
+# SQLite runtime/backup sidecars (the reviewed catalog database itself is tracked)
+*.db-shm
+*.db-wal
+*.legacy.db
 
 # Azure configuration
 .azure/**/.env

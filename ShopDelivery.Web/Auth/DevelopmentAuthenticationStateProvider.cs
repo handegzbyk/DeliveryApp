@@ -10,6 +10,7 @@ public sealed class DevelopmentAuthenticationStateProvider : AuthenticationState
         [
             new Claim("sub", "local-customer"),
             new Claim(ClaimTypes.Name, "Local customer"),
+            new Claim(ClaimTypes.Role, "admin"),
         ],
         authenticationType: "DevelopmentCustomer")));
 

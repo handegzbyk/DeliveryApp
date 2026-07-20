@@ -1,5 +1,5 @@
 @page "/admin"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "admin")]
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 
@@ -7,8 +7,8 @@
 
 <section class="admin-hero">
     <div class="eyebrow">Administration</div>
-    <h1>Master data stays behind the customer journey.</h1>
-    <p>Manage catalog quality, imports, and receipt diagnostics without mixing operational controls into the personal app.</p>
+    <h1>Build and protect the shared product catalog.</h1>
+    <p>Search before creating products, review uncertain submissions, and merge duplicates without changing customer receipts.</p>
 </section>
 
 @if (_busy)
@@ -21,55 +21,102 @@ else
         <article class="app-card">
             <div class="eyebrow">API</div>
             <h2>@(_health?.Status ?? "Unavailable")</h2>
-            <p class="muted">@(_health?.At.ToString("g") ?? "No health response")</p>
         </article>
         <article class="app-card">
-            <div class="eyebrow">Product master</div>
+            <div class="eyebrow">Confirmed products</div>
             <div class="metric">@_products.Count</div>
-            <p class="muted">Catalog products available for receipt matching.</p>
         </article>
         <article class="app-card">
-            <div class="eyebrow">Needs attention</div>
-            <div class="metric">@WarningCount</div>
-            <p class="muted">Products missing an image, category, price, or external code.</p>
+            <div class="eyebrow">Waiting for review</div>
+            <div class="metric">@_reviews.Count</div>
         </article>
     </section>
 
     <section class="admin-grid">
         <article class="app-card">
-            <h2>Catalog operations</h2>
-            <p class="muted">Seed the starter catalog or import a specific product into master data.</p>
-            <div class="admin-actions">
-                <button class="primary" @onclick="SeedCatalog" disabled="@_working">
-                    @(_working ? "Working…" : "Seed starter catalog")
-                </button>
-                <div class="import-row">
-                    <input @bind="_importQuery" placeholder="Barcode or product name" aria-label="Barcode or product name" />
-                    <button @onclick="ImportProduct" disabled="@(_working || string.IsNullOrWhiteSpace(_importQuery))">Import</button>
-                </div>
+            <h2>Search before adding</h2>
+            <p class="muted">Search the EDEKA-seeded master catalog by name, barcode, or OCR text from a package photo.</p>
+            <div class="import-row">
+                <input @bind="_searchText" placeholder="Product name or EAN" aria-label="Product name or EAN" />
+                <button @onclick="SearchByName" disabled="@(_working || string.IsNullOrWhiteSpace(_searchText))">Search</button>
             </div>
-            @if (_message is not null)
+            <label class="receipt-picker">
+                <span>Search package image with OCR</span>
+                <InputFile OnChange="SearchByImage" accept="image/*" disabled="@_working" />
+            </label>
+
+            @if (_search is not null)
             {
-                <p class="status-message">@_message</p>
+                <p><strong>Search text:</strong> @_search.Query</p>
+                <div class="admin-search-results">
+                    @foreach (var candidate in _search.Candidates)
+                    {
+                        <div class="confirmed-item">
+                            <span class="confirmed-thumbnail">
+                                <img src="@candidate.ImageUrl" alt="" loading="lazy" />
+                            </span>
+                            <span><strong>@candidate.Name</strong><small>@candidate.MatchReason · @candidate.Score.ToString("P0")</small></span>
+                        </div>
+                    }
+                </div>
+                @if (!_search.ExactMatch && !string.IsNullOrWhiteSpace(_searchText))
+                {
+                    <button class="primary" @onclick="SubmitNewProposal" disabled="@_working">
+                        Submit as uncertain new product
+                    </button>
+                }
             }
         </article>
 
         <article class="app-card">
-            <h2>Master-data workspaces</h2>
-            <div class="admin-links">
-                <a href="catalog-health">
-                    <strong>Catalog health</strong>
-                    <span>Review incomplete products and matching risks.</span>
-                </a>
-                <a href="scan-raw">
-                    <strong>Raw receipt OCR</strong>
-                    <span>Inspect extraction results without entering the customer flow.</span>
-                </a>
-            </div>
+            <h2>Administrator review queue</h2>
+            @if (_reviews.Count == 0)
+            {
+                <p class="muted">Nothing is waiting for review.</p>
+            }
+            @foreach (var editor in _reviews)
+            {
+                <div class="review-admin-item">
+                    <strong>@editor.Item.ProposedProductName</strong>
+                    <span>@editor.Item.SourceType · @editor.Item.RawName</span>
+                    @if (editor.IsAliasReview)
+                    {
+                        <span>This review changes a store alias; rejecting it will not reject either master product.</span>
+                    }
+                    @if (editor.Item.CandidateProductId is not null)
+                    {
+                        <span>Possible existing product: @editor.Item.CandidateProductName (#@editor.Item.CandidateProductId)</span>
+                    }
+                    <div class="review-fields">
+                        <label>Name <input @bind="editor.Name" /></label>
+                        <label>EAN / GTIN <input @bind="editor.Gtin" /></label>
+                        <label>Brand <input @bind="editor.Brand" /></label>
+                        <label>Category <input @bind="editor.Category" /></label>
+                    </div>
+                    <label class="receipt-picker compact-picker">
+                        <span>@(editor.Item.HasImage ? "Replace product image" : "Add product image")</span>
+                        <InputFile OnChange="@(args => UploadReviewImage(editor, args))" accept="image/*" disabled="@_working" />
+                    </label>
+                    <div class="admin-actions">
+                        <button @onclick='() => Decide(editor, "confirm")' disabled="@_working">
+                            @(editor.IsAliasReview ? "Accept mapping correction" : "Save & confirm new")
+                        </button>
+                        <button @onclick='() => Decide(editor, "merge")'
+                                disabled="@(_working || editor.Item.CandidateProductId is null)">Merge duplicate products</button>
+                        <button @onclick='() => Decide(editor, "reject")' disabled="@_working">
+                            @(editor.IsAliasReview ? "Keep existing mapping" : "Reject product")
+                        </button>
+                    </div>
+                </div>
+            }
         </article>
     </section>
 }
 
+@if (_message is not null)
+{
+    <p class="status-message">@_message</p>
+}
 @if (_error is not null)
 {
     <p class="error" role="alert">@_error</p>
@@ -78,36 +125,28 @@ else
 @code {
     private ApiHealthResponse? _health;
     private List<ProductSummary> _products = [];
-    private string? _importQuery;
+    private List<ReviewEditor> _reviews = [];
+    private ProductSearchResponse? _search;
+    private string? _searchText;
     private string? _message;
     private string? _error;
-    private bool _busy;
+    private bool _busy = true;
     private bool _working;
 
-    private int WarningCount => _products.Count(product =>
-        string.IsNullOrWhiteSpace(product.ImageUrl)
-        || string.IsNullOrWhiteSpace(product.Category)
-        || string.IsNullOrWhiteSpace(product.OpenFoodFactsCode)
-        || product.LatestPrice is null);
-
-    protected override async Task OnInitializedAsync()
-    {
-        await Load();
-    }
+    protected override async Task OnInitializedAsync() => await Load();
 
     private async Task Load()
     {
         _busy = true;
-        _error = null;
-
         try
         {
             _health = await Api.GetHealthAsync();
             _products = (await Api.GetProductsAsync()).ToList();
+            _reviews = (await Api.GetProductReviewsAsync()).Select(item => new ReviewEditor(item)).ToList();
         }
         catch (Exception ex)
         {
-            _error = $"The administration workspace could not be loaded. {ex.Message}";
+            _error = $"Administration data could not be loaded. {ex.Message}";
         }
         finally
         {
@@ -115,51 +154,79 @@ else
         }
     }
 
-    private async Task SeedCatalog()
+    private async Task SearchByName()
     {
-        _working = true;
-        _message = null;
-        _error = null;
-
-        try
-        {
-            var result = await Api.SeedProductCatalogAsync();
-            _message = $"{result.Created} created, {result.Updated} updated, {result.Skipped} already existed.";
-            _products = (await Api.GetProductsAsync()).ToList();
-        }
-        catch (Exception ex)
-        {
-            _error = $"Catalog seeding failed. {ex.Message}";
-        }
-        finally
-        {
-            _working = false;
-        }
+        if (string.IsNullOrWhiteSpace(_searchText)) return;
+        await Work(async () => _search = await Api.SearchProductsAsync(_searchText.Trim()));
     }
 
-    private async Task ImportProduct()
+    private async Task SearchByImage(InputFileChangeEventArgs args)
     {
-        if (string.IsNullOrWhiteSpace(_importQuery))
-            return;
-
-        _working = true;
-        _message = null;
-        _error = null;
-
-        try
+        await Work(async () =>
         {
-            var product = await Api.ImportProductAsync(_importQuery.Trim());
-            _message = $"Imported {product.Name}.";
-            _importQuery = null;
+            _search = await Api.SearchProductImageAsync(args.File);
+            _searchText = _search.Query;
+        });
+    }
+
+    private async Task SubmitNewProposal()
+    {
+        if (string.IsNullOrWhiteSpace(_searchText)) return;
+        await Work(async () =>
+        {
+            var response = await Api.ProposeProductAsync(new ProductProposalRequest(
+                _searchText.Trim(),
+                CreateWhenUncertain: true));
+            _message = response.Created ? "Proposal added for administrator confirmation." : "An existing match was found.";
+            _reviews = (await Api.GetProductReviewsAsync()).Select(item => new ReviewEditor(item)).ToList();
+        });
+    }
+
+    private async Task UploadReviewImage(ReviewEditor editor, InputFileChangeEventArgs args)
+    {
+        await Work(async () =>
+        {
+            await Api.UploadProductImageAsync(editor.Item.ProposedProductId, args.File);
+            _message = "Product image saved with the proposed master-data record.";
+            var refreshed = await Api.GetProductReviewsAsync();
+            _reviews = refreshed.Select(item => new ReviewEditor(item)).ToList();
+        });
+    }
+
+    private async Task Decide(ReviewEditor editor, string action)
+    {
+        await Work(async () =>
+        {
+            await Api.DecideProductReviewAsync(editor.Item.Id, new AdminReviewDecision(
+                action,
+                action == "merge" ? editor.Item.CandidateProductId : null,
+                editor.Name,
+                editor.Gtin,
+                editor.Brand,
+                editor.Category));
+            _message = $"Review #{editor.Item.Id} completed: {action}.";
+            _reviews = (await Api.GetProductReviewsAsync()).Select(item => new ReviewEditor(item)).ToList();
             _products = (await Api.GetProductsAsync()).ToList();
-        }
-        catch (Exception ex)
-        {
-            _error = $"Product import failed. {ex.Message}";
-        }
-        finally
-        {
-            _working = false;
-        }
+        });
+    }
+
+    private async Task Work(Func<Task> action)
+    {
+        _working = true;
+        _error = null;
+        _message = null;
+        try { await action(); }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _working = false; }
+    }
+
+    private sealed class ReviewEditor(AdminReviewItem item)
+    {
+        public AdminReviewItem Item { get; } = item;
+        public string Name { get; set; } = item.ProposedProductName;
+        public string? Gtin { get; set; } = item.ProposedGtin;
+        public string? Brand { get; set; } = item.ProposedBrandName;
+        public string? Category { get; set; } = item.ProposedCategory;
+        public bool IsAliasReview => Item.SourceType is "AliasCorrection" or "CatalogAliasConflict";
     }
 }

@@ -10,17 +10,16 @@ public record ReviewLine(
     string RawText,
     decimal Price,
     int Quantity,
-    int? MatchedProductId,              // set = confidently matched (score ≥ threshold)
-    List<ProductCandidate> Candidates,  // sliding gallery when unmatched
-    List<BrandOption> BrandOptions);
+    int? MatchedProductId,
+    List<ProductCandidate> Candidates);
 
 public record ProductCandidate(
-    int? ProductId,      // existing product; null = "create new"
+    int? ProductId,
     string Name,
     string? ImageUrl,
-    double Score);
-
-public record BrandOption(int? BrandId, string Name);
+    double Score,
+    string MatchReason = "Name match",
+    bool RequiresAdminReview = false);
 
 public record ConfirmRequest(
     string StoreName,
@@ -29,6 +28,34 @@ public record ConfirmRequest(
     List<ConfirmLine> Lines);
 
 public record ConfirmLine(
-    string RawText, decimal Price, int Quantity,
-    int? ProductId, string ProductName, int? BrandId, string? NewBrandName,
-    bool LearnStoreAlias = true);
+    string RawText,
+    decimal Price,
+    int Quantity,
+    int? ProductId,
+    string ProductName,
+    bool CreateProvisional = false,
+    int? RejectedProductId = null);
+
+public record AdminReviewItem(
+    long Id,
+    int ProposedProductId,
+    string ProposedProductName,
+    string? ProposedGtin,
+    string? ProposedBrandName,
+    string? ProposedCategory,
+    bool HasImage,
+    int? CandidateProductId,
+    string? CandidateProductName,
+    string RawName,
+    string SourceType,
+    string? SourceReference,
+    DateTimeOffset CreatedAt);
+
+public record AdminReviewDecision(
+    string Action,
+    int? TargetProductId = null,
+    string? CorrectedName = null,
+    string? CorrectedGtin = null,
+    string? BrandName = null,
+    string? Category = null,
+    string? Note = null);

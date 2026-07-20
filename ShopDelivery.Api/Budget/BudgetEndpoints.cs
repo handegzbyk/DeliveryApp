@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ShopDelivery.Api.Auth;
 using ShopDelivery.Api.Data;
+using ShopDelivery.Api.Products;
 using ShopDelivery.Shared;
 
 namespace ShopDelivery.Api.Budget;
@@ -19,7 +20,8 @@ public static class BudgetEndpoints
                 CancellationToken ct) =>
             {
                 var customerId = customerIdentity.GetRequiredCustomerId(httpContext.User);
-                var response = await BuildExpenseResponseAsync(receiptId, customerId, db, ct);
+                var response = await BuildExpenseResponseAsync(
+                    receiptId, customerId, httpContext.Request, db, ct);
                 if (response is null)
                     return Results.NotFound();
 
@@ -62,7 +64,8 @@ public static class BudgetEndpoints
                 if (latestReceiptId is null)
                     return Results.NotFound();
 
-                var response = await BuildExpenseResponseAsync(latestReceiptId.Value, customerId, db, ct);
+                var response = await BuildExpenseResponseAsync(
+                    latestReceiptId.Value, customerId, httpContext.Request, db, ct);
                 return response is null ? Results.NotFound() : Results.Ok(response);
             })
             .RequireAuthorization()
@@ -104,15 +107,20 @@ public static class BudgetEndpoints
     private static async Task<BasketExpenseResponse?> BuildExpenseResponseAsync(
         int receiptId,
         string customerId,
+        HttpRequest request,
         ShopDbContext db,
         CancellationToken ct)
     {
         var receipt = await db.Receipts
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(receipt => receipt.Store)
             .Include(receipt => receipt.Lines)
             .ThenInclude(line => line.Product)
             .ThenInclude(product => product.Brand)
+            .Include(receipt => receipt.Lines)
+            .ThenInclude(line => line.Product)
+            .ThenInclude(product => product.Images)
             .Include(receipt => receipt.Lines)
             .ThenInclude(line => line.StoreProduct)
             .FirstOrDefaultAsync(
@@ -195,7 +203,9 @@ public static class BudgetEndpoints
                 line.StoreProduct?.Name,
                 line.Product.Brand?.Name,
                 line.Product.Category,
-                line.Product.ImageUrl,
+                ProductImageUrls.For(
+                    request,
+                    line.Product.Images.FirstOrDefault(image => image.IsPrimary)?.ImageAssetId),
                 line.Price,
                 line.Quantity))
             .ToList();

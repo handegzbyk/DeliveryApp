@@ -32,6 +32,7 @@ else
     var authority = builder.Configuration["Authentication:Authority"];
     var clientId = builder.Configuration["Authentication:ClientId"];
     var apiScope = builder.Configuration["Authentication:ApiScope"];
+    var roleClaim = builder.Configuration["Authentication:RoleClaim"] ?? "roles";
     if (string.IsNullOrWhiteSpace(authority)
         || string.IsNullOrWhiteSpace(clientId)
         || string.IsNullOrWhiteSpace(apiScope))
@@ -46,6 +47,7 @@ else
         options.ProviderOptions.ClientId = clientId;
         options.ProviderOptions.ResponseType = "code";
         options.ProviderOptions.DefaultScopes.Add(apiScope);
+        options.UserOptions.RoleClaim = roleClaim;
     });
     builder.Services.AddScoped<ApiAuthorizationMessageHandler>();
     apiClient.AddHttpMessageHandler<ApiAuthorizationMessageHandler>();

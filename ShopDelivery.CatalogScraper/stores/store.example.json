@@ -1,0 +1,33 @@
+{
+  "StoreName": "Example Store",
+  "StartUrls": [
+    "https://www.example-store.de/products"
+  ],
+  "SitemapUrls": [],
+  "AllowedHosts": [
+    "www.example-store.de"
+  ],
+  "AllowedImageHosts": [
+    "www.example-store.de",
+    "images.example-store.de"
+  ],
+  "ProductUrlPatterns": [
+    "/produkt/",
+    "/products/"
+  ],
+  "ExcludedUrlPatterns": [
+    "/(account|login|logout|cart|checkout)(/|$)",
+    "\\.(css|js|pdf|zip|png|jpe?g|gif|webp|svg|ico)(\\?|$)"
+  ],
+  "MaxPages": 500,
+  "MaxSitemapUrls": 5000,
+  "RequestDelayMilliseconds": 1200,
+  "MaxPageBytes": 5000000,
+  "MaxSitemapBytes": 50000000,
+  "RespectRobotsTxt": true,
+  "DownloadImages": true,
+  "MaxImageBytes": 10000000,
+  "KeepQueryStrings": false,
+  "OutputDirectory": "../artifacts/catalogs/example-store",
+  "UserAgent": "ShopDeliveryCatalogScraper/1.0 (local master-data builder; contact: you@example.com)"
+}

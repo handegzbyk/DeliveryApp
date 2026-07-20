@@ -3,26 +3,38 @@ namespace ShopDelivery.Shared;
 public record ProductSummary(
     int Id,
     string Name,
-    string? OpenFoodFactsCode,
+    string? Gtin,
     string? BrandName,
     string? Category,
     string? ImageUrl,
+    bool HasImage,
+    string Status,
     decimal? LatestPrice);
 
-public record ProductImportRequest(
-    string? Query,
-    string? StoreName = null,
-    string? StoreProductName = null,
-    string? StoreProductCode = null);
+public record ProductSearchResponse(
+    string Query,
+    bool ExactMatch,
+    List<ProductCandidate> Candidates);
 
-public record ProductSeedRequest(
-    List<string>? Categories = null,
-    string Country = "Germany",
-    int PageSize = 25,
-    int MaxPagesPerCategory = 1);
+public record ProductProposalRequest(
+    string Name,
+    string? Gtin = null,
+    string? BrandName = null,
+    string? Category = null,
+    bool CreateWhenUncertain = false);
 
-public record ProductSeedResponse(
-    int Created,
-    int Updated,
-    int Skipped,
-    List<string> Categories);
+public record ProductProposalResponse(
+    bool Created,
+    long? ReviewItemId,
+    ProductSummary? Product,
+    List<ProductCandidate> Candidates);
+
+public record CatalogImportResponse(
+    int CreatedProducts,
+    int UpdatedProducts,
+    int CreatedAliases,
+    int ReviewItems,
+    int StoredImages,
+    long SourceImageBytes,
+    long StoredImageBytes,
+    int FailedImages);

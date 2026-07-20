@@ -238,6 +238,12 @@
     font-weight: 800;
 }
 
+.candidate-reason {
+    color: #66756b;
+    font-size: .68rem;
+    line-height: 1.15;
+}
+
 .suggested-badge {
     background: #176b45;
     border-radius: 999px;

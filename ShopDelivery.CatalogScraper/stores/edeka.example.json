@@ -1,0 +1,36 @@
+{
+  "StoreName": "EDEKA24",
+  "StartUrls": [
+    "https://www.edeka24.de/Lebensmittel/",
+    "https://www.edeka24.de/Bio-Produkte/",
+    "https://www.edeka24.de/Wein-Spirituosen/",
+    "https://www.edeka24.de/Drogerie/"
+  ],
+  "SitemapUrls": [],
+  "AllowedHosts": [
+    "www.edeka24.de"
+  ],
+  "AllowedImageHosts": [
+    "www.edeka24.de"
+  ],
+  "ProductUrlPatterns": [
+    "^https://www\\.edeka24\\.de/.+\\.html$"
+  ],
+  "ExcludedUrlPatterns": [
+    "/index\\.php$",
+    "/(?:admin|Core|tmp|views|Setup|log|newsletter|AGB|warenkorb|mein-konto|mein-merkzettel|mein-wunschzettel|konto-eroeffnen|passwort-vergessen)(?:/|$)",
+    "\\.(css|js|pdf|zip|png|jpe?g|gif|webp|svg|ico)(\\?|$)"
+  ],
+  "MaxPages": 500,
+  "MaxSitemapUrls": 5000,
+  "RequestDelayMilliseconds": 20000,
+  "MaxPageBytes": 5000000,
+  "MaxSitemapBytes": 50000000,
+  "RespectRobotsTxt": true,
+  "DownloadImages": true,
+  "ResumeExistingCatalog": true,
+  "MaxImageBytes": 10000000,
+  "KeepQueryStrings": false,
+  "OutputDirectory": "../artifacts/catalogs/edeka24",
+  "UserAgent": "ShopDeliveryCatalogScraper/1.0 (local master-data builder)"
+}
