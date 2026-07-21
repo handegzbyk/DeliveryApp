@@ -1,84 +1,153 @@
 @page "/shop"
+@page "/plan"
 @attribute [Authorize]
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 
-<PageTitle>Shop & Delivery</PageTitle>
+<PageTitle>Hanny Plan</PageTitle>
 
-<section class="hero">
-    <div class="eyebrow">Shop and make baskets</div>
-    <h1>Build a shopping list, compare markets, and prepare delivery.</h1>
-    <p>Use catalog products to create a basket. Market routing is estimated until live market inventory APIs are connected.</p>
+<section class="plan-hero">
+    <div>
+        <div class="eyebrow light">Hanny Plan</div>
+        <h1>From “what should we eat?” to a smarter basket.</h1>
+        <p>Start with a recipe or search the shelf, add personal notes, and prepare a list for store-price comparison.</p>
+    </div>
+    <div class="basket-counter">
+        <strong>@BasketItemCount</strong>
+        <span>items planned</span>
+    </div>
 </section>
 
 @if (_busy)
 {
-    <p><em>Loading products…</em></p>
+    <p class="plan-loading">Preparing recipes and products…</p>
 }
 else
 {
-    <section class="shop-layout">
-        <article class="app-card">
-            <h2>Online shop</h2>
-            <input class="search" @bind="_query" @bind:event="oninput" placeholder="Search product catalog" />
+    @if (_error is not null)
+    {
+        <p class="error" role="alert">@_error</p>
+    }
+
+    <section class="recipe-section">
+        <div class="section-title">
+            <div>
+                <div class="eyebrow">Recipe to basket</div>
+                <h2>Start with an idea</h2>
+            </div>
+            <span>Ingredients are matched from Hanny Shelf</span>
+        </div>
+        <div class="recipe-strip">
+            @foreach (var recipe in Recipes)
+            {
+                <article class="recipe-card @recipe.Tone">
+                    <span class="recipe-time">@recipe.TimeMinutes min</span>
+                    <div class="recipe-illustration" aria-hidden="true">@recipe.Icon</div>
+                    <strong>@recipe.Name</strong>
+                    <p>@recipe.Description</p>
+                    <button @onclick="() => AddRecipe(recipe)">Add ingredients</button>
+                </article>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_recipeMessage))
+        {
+            <p class="recipe-message">@_recipeMessage</p>
+        }
+    </section>
+
+    <section class="plan-layout">
+        <article class="catalog-panel">
+            <div class="section-title compact-title">
+                <div>
+                    <div class="eyebrow">Build your own</div>
+                    <h2>Search Hanny Shelf</h2>
+                </div>
+            </div>
+            <label class="product-search">
+                <span aria-hidden="true">⌕</span>
+                <input @bind="_query" @bind:event="oninput" placeholder="Search products or brands" />
+            </label>
             <div class="catalog-list">
-                @foreach (var product in FilteredProducts.Take(24))
+                @foreach (var product in FilteredProducts.Take(30))
                 {
                     <div class="shop-product">
-                        @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
-                        {
-                            <img src="@product.ImageUrl" alt="@product.Name" />
-                        }
+                        <span class="shop-image">
+                            @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                            {
+                                <img src="@product.ImageUrl" alt="" loading="lazy" />
+                            }
+                            else
+                            {
+                                <i>•</i>
+                            }
+                        </span>
                         <div>
                             <strong>@product.Name</strong>
-                            <p class="muted">@product.BrandName</p>
+                            <p>@product.BrandName · @(product.LatestPrice?.ToString("C") ?? "price pending")</p>
                         </div>
-                        <button @onclick="() => AddToBasket(product)">Add</button>
+                        <button aria-label="Add @product.Name" @onclick="() => AddToBasket(product)">+</button>
                     </div>
                 }
             </div>
         </article>
 
-        <aside>
-            <article class="app-card">
-                <h2>Shopping list</h2>
+        <aside class="basket-panel">
+            <article class="basket-card">
+                <div class="section-title compact-title">
+                    <div>
+                        <div class="eyebrow">Shopping list</div>
+                        <h2>My Hanny basket</h2>
+                    </div>
+                    <strong>@KnownPriceTotal.ToString("C")</strong>
+                </div>
+
                 @if (_basket.Count == 0)
                 {
-                    <p class="muted">Add products to create a basket.</p>
+                    <div class="empty-basket">
+                        <span>≡</span>
+                        <strong>Your list is empty.</strong>
+                        <p>Add a recipe or choose products from the shelf.</p>
+                    </div>
                 }
                 else
                 {
-                    @foreach (var item in _basket)
-                    {
-                        <div class="basket-row">
-                            <span>@item.Product.Name</span>
-                            <div>
-                                <button @onclick="() => ChangeQuantity(item.Product.Id, -1)">−</button>
-                                <strong>@item.Quantity</strong>
-                                <button @onclick="() => ChangeQuantity(item.Product.Id, 1)">+</button>
+                    <div class="basket-list">
+                        @foreach (var item in _basket)
+                        {
+                            <div class="basket-item">
+                                <div class="basket-item-top">
+                                    <span>@item.Product.Name</span>
+                                    <div class="quantity-control">
+                                        <button @onclick="() => ChangeQuantity(item.Product.Id, -1)">−</button>
+                                        <strong>@item.Quantity</strong>
+                                        <button @onclick="() => ChangeQuantity(item.Product.Id, 1)">+</button>
+                                    </div>
+                                </div>
+                                <input @bind="item.Comment" placeholder="Add a note, e.g. ripe or lactose-free" />
                             </div>
-                        </div>
-                    }
-                }
-            </article>
-
-            <article class="app-card">
-                <h2>Best market around</h2>
-                @foreach (var market in MarketOptions)
-                {
-                    <div class="market-row @(market == BestMarket ? "best" : "")">
-                        <strong>@market.Name</strong>
-                        <span>@market.DistanceKm.ToString("0.0") km</span>
-                        <span>@market.EstimatedTotal.ToString("C")</span>
+                        }
                     </div>
                 }
             </article>
 
-            <article class="app-card">
-                <h2>Delivery</h2>
-                <p class="muted">Estimated delivery from @BestMarket.Name.</p>
-                <p><strong>@DeliveryTotal.ToString("C")</strong> basket + delivery estimate</p>
-                <button class="primary" disabled="@(_basket.Count == 0)">Prepare delivery order</button>
+            <article class="compare-card">
+                <div class="compare-icon">↘</div>
+                <div>
+                    <div class="eyebrow">Cheapest-store guidance</div>
+                    <h2>Price comparison grows with receipts.</h2>
+                    <p>Hanny will recommend the cheapest complete basket after enough current prices exist across at least two stores.</p>
+                </div>
+                <div class="coverage-row">
+                    <span>Current known-price coverage</span>
+                    <strong>@KnownPriceCoverage%</strong>
+                </div>
+                <div class="coverage-track"><i style="width:@KnownPriceCoverage%"></i></div>
+            </article>
+
+            <article class="market-preview">
+                <span>Next step</span>
+                <strong>Online ordering will live in Hanny Market.</strong>
+                <a href="market">View what is coming →</a>
             </article>
         </aside>
     </section>
@@ -88,29 +157,31 @@ else
     private readonly List<BasketItem> _basket = [];
     private List<ProductSummary> _products = [];
     private string? _query;
+    private string? _recipeMessage;
+    private string? _error;
     private bool _busy;
 
-    private IEnumerable<ProductSummary> FilteredProducts =>
-        string.IsNullOrWhiteSpace(_query)
-            ? _products.Where(product => !string.IsNullOrWhiteSpace(product.ImageUrl))
-            : _products.Where(product => product.Name.Contains(_query, StringComparison.OrdinalIgnoreCase));
-
-    private decimal BasketBaseTotal =>
-        _basket.Sum(item => item.Quantity * (item.Product.LatestPrice ?? 2.49m));
-
-    private List<MarketOption> MarketOptions =>
+    private static IReadOnlyList<RecipeIdea> Recipes =>
     [
-        new("EDEKA", 0.8m, BasketBaseTotal * 1.02m),
-        new("REWE", 1.4m, BasketBaseTotal * 1.04m),
-        new("Lidl", 2.1m, BasketBaseTotal * .94m),
-        new("Aldi", 2.6m, BasketBaseTotal * .92m),
+        new("Colorful pasta night", "Tomato, pasta and a simple creamy finish.", "🍝", 25, "honey", ["pasta", "tomat", "cream"]),
+        new("Bright breakfast bowl", "Yoghurt, oats and fruit for an easy start.", "🥣", 8, "jade", ["yog", "oat", "fruit"]),
+        new("Quick veggie wraps", "Fresh vegetables, wraps and a flexible filling.", "🌯", 18, "citrus", ["wrap", "salat", "tomat"]),
     ];
 
-    private MarketOption BestMarket =>
-        MarketOptions.OrderBy(market => market.EstimatedTotal + market.DistanceKm * .65m).First();
+    private IEnumerable<ProductSummary> FilteredProducts =>
+        (string.IsNullOrWhiteSpace(_query)
+            ? _products.Where(product => product.HasImage)
+            : _products.Where(product =>
+                product.Name.Contains(_query, StringComparison.OrdinalIgnoreCase)
+                || product.BrandName?.Contains(_query, StringComparison.OrdinalIgnoreCase) == true))
+        .OrderBy(product => product.LatestPrice is null)
+        .ThenBy(product => product.Name);
 
-    private decimal DeliveryTotal =>
-        BestMarket.EstimatedTotal + (_basket.Count == 0 ? 0 : 3.99m);
+    private int BasketItemCount => _basket.Sum(item => item.Quantity);
+    private decimal KnownPriceTotal => _basket.Sum(item => item.Quantity * (item.Product.LatestPrice ?? 0));
+    private decimal KnownPriceCoverage => _basket.Count == 0
+        ? 0
+        : Math.Round((decimal)_basket.Count(item => item.Product.LatestPrice is not null) / _basket.Count * 100);
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,10 +190,39 @@ else
         {
             _products = (await Api.GetProductsAsync()).ToList();
         }
+        catch (Exception ex)
+        {
+            _error = $"Hanny Shelf is temporarily unavailable. {ex.Message}";
+        }
         finally
         {
             _busy = false;
         }
+    }
+
+    private void AddRecipe(RecipeIdea recipe)
+    {
+        var added = 0;
+        foreach (var keyword in recipe.Keywords)
+        {
+            var product = _products
+                .Where(product =>
+                    product.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                    || product.Category?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true)
+                .OrderByDescending(product => product.HasImage)
+                .ThenBy(product => product.LatestPrice is null)
+                .FirstOrDefault();
+
+            if (product is null)
+                continue;
+
+            AddToBasket(product);
+            added++;
+        }
+
+        _recipeMessage = added == 0
+            ? $"Hanny Shelf does not yet have enough matches for {recipe.Name}."
+            : $"Added {added} matched ingredient(s) for {recipe.Name}.";
     }
 
     private void AddToBasket(ProductSummary product)
@@ -148,11 +248,18 @@ else
             _basket.Remove(item);
     }
 
-    private sealed record MarketOption(string Name, decimal DistanceKm, decimal EstimatedTotal);
+    private sealed record RecipeIdea(
+        string Name,
+        string Description,
+        string Icon,
+        int TimeMinutes,
+        string Tone,
+        IReadOnlyList<string> Keywords);
 
     private sealed class BasketItem(ProductSummary product, int quantity)
     {
         public ProductSummary Product { get; } = product;
         public int Quantity { get; set; } = quantity;
+        public string? Comment { get; set; }
     }
 }

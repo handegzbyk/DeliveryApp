@@ -1,74 +1,137 @@
-.navbar-toggler {
-    background-color: rgba(255, 255, 255, 0.12);
+.brand-lockup {
+    border-bottom: 1px solid rgba(66, 56, 52, .09);
+    padding: 1.75rem 1.25rem 1.35rem;
 }
 
-.top-row {
-    background: transparent;
-    min-height: 3.5rem;
-}
-
-.navbar-brand {
-    font-size: 1.15rem;
-    font-weight: 800;
-    letter-spacing: -.02em;
-}
-
-.nav-section {
-    color: rgba(255, 255, 255, .55);
-    font-size: .72rem;
-    font-weight: 800;
-    letter-spacing: .08em;
-    padding: 1rem 1rem .35rem;
-    text-transform: uppercase;
-}
-
-.admin-section {
-    border-top: 1px solid rgba(255, 255, 255, .12);
-    margin-top: 1rem;
-    padding-top: 1.25rem;
-}
-
-.admin-link ::deep a {
-    border: 1px solid rgba(255, 255, 255, .14);
-}
-
-.nav-item {
-    font-size: .95rem;
-    padding-bottom: .25rem;
-}
-
-.nav-item ::deep a {
+.brand-lockup > a {
     align-items: center;
-    border-radius: 12px;
-    color: rgba(255, 255, 255, .78);
+    color: var(--oak);
     display: flex;
-    min-height: 2.75rem;
-    padding: 0 .8rem;
+    font-size: 2rem;
+    font-weight: 900;
+    gap: .55rem;
+    letter-spacing: -.08em;
     text-decoration: none;
 }
 
-.nav-item ::deep a.active {
-    background: rgba(255, 255, 255, .18);
-    color: white;
+.brand-seed {
+    background: var(--honey);
+    border-radius: 70% 30% 65% 35%;
+    display: inline-block;
+    height: 1.2rem;
+    rotate: -28deg;
+    width: .85rem;
 }
 
-.nav-item ::deep a:hover {
-    background: rgba(255, 255, 255, .1);
-    color: white;
+.brand-lockup small {
+    color: var(--text-muted);
+    display: block;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: .35rem 0 0 1.45rem;
 }
 
-@media (min-width: 641px) {
-    .navbar-toggler {
-        display: none;
-    }
+.desktop-nav {
+    display: grid;
+    gap: .25rem;
+    padding: .9rem .7rem;
+}
 
-    .collapse {
-        display: block;
-    }
+.nav-label {
+    color: var(--honey-deep);
+    font-size: .65rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    padding: .65rem .6rem .25rem;
+    text-transform: uppercase;
+}
 
-    .nav-scrollable {
-        height: calc(100vh - 3.5rem);
-        overflow-y: auto;
-        padding: 0 .5rem 1rem;
-    }
+.admin-label {
+    border-top: 1px solid rgba(66, 56, 52, .09);
+    margin-top: .65rem;
+    padding-top: 1rem;
+}
+
+.desktop-nav ::deep a {
+    align-items: center;
+    border-radius: 15px;
+    color: var(--oak-soft);
+    display: grid;
+    gap: .65rem;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    min-height: 3.7rem;
+    padding: .55rem .65rem;
+    text-decoration: none;
+}
+
+.desktop-nav ::deep a:hover {
+    background: #fff7e3;
+    color: var(--oak);
+}
+
+.desktop-nav ::deep a.active {
+    background: var(--honey);
+    color: var(--oak);
+}
+
+.desktop-nav ::deep a strong,
+.desktop-nav ::deep a small {
+    display: block;
+}
+
+.desktop-nav ::deep a strong {
+    font-size: .85rem;
+}
+
+.desktop-nav ::deep a small {
+    font-size: .66rem;
+    margin-top: .1rem;
+    opacity: .68;
+}
+
+.nav-icon {
+    align-items: center;
+    background: var(--cream-deep);
+    border-radius: 10px;
+    display: flex;
+    font-size: 1rem;
+    height: 2rem;
+    justify-content: center;
+    width: 2rem;
+}
+
+.desktop-nav ::deep a.active .nav-icon {
+    background: rgba(255, 255, 255, .5);
+}
+
+.sidebar-note {
+    background: #fff8e6;
+    border: 1px solid #f0d89c;
+    border-radius: 16px;
+    bottom: 1rem;
+    left: .8rem;
+    padding: .8rem;
+    position: absolute;
+    right: .8rem;
+}
+
+.sidebar-note span,
+.sidebar-note strong {
+    display: block;
+}
+
+.sidebar-note span {
+    color: var(--honey-deep);
+    font-size: .64rem;
+    font-weight: 900;
+    letter-spacing: .08em;
+    margin-bottom: .25rem;
+    text-transform: uppercase;
+}
+
+.sidebar-note strong {
+    color: var(--oak-soft);
+    font-size: .7rem;
+    line-height: 1.4;
 }

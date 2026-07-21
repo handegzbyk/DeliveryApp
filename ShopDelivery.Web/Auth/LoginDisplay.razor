@@ -1,9 +1,9 @@
-@inject IWebAssemblyHostEnvironment Environment
+@inject IConfiguration Configuration
 
 <AuthorizeView>
     <Authorized Context="authentication">
         <span class="customer-name">@(authentication.User.Identity?.Name ?? "Customer")</span>
-        @if (!Environment.IsDevelopment())
+        @if (!UseDevelopmentIdentity)
         {
             <a href="authentication/logout">Sign out</a>
         }
@@ -12,3 +12,8 @@
         <a href="authentication/login">Sign in</a>
     </NotAuthorized>
 </AuthorizeView>
+
+@code {
+    private bool UseDevelopmentIdentity =>
+        Configuration.GetValue("Authentication:UseDevelopmentIdentity", false);
+}

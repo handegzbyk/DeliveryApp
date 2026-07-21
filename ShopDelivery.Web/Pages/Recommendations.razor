@@ -1,54 +1,110 @@
 @page "/recommendations"
+@page "/products"
 @attribute [Authorize]
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 
-<PageTitle>Recommendations</PageTitle>
+<PageTitle>Hanny Shelf</PageTitle>
 
-<section class="hero">
-    <div class="eyebrow">Product recommendations</div>
-    <h1>Suggest useful products from the catalog.</h1>
-    <p>Recommendations prioritize products with images and categories, then use basket history when available.</p>
+<section class="shelf-hero">
+    <div>
+        <div class="eyebrow light">Hanny Shelf</div>
+        <h1>Know what is on the shelf—and what it has cost.</h1>
+        <p>Explore the shared product catalog built from verified market data and confirmed receipt matches.</p>
+    </div>
+    <div class="shelf-stat">
+        <strong>@_products.Count</strong>
+        <span>known products</span>
+    </div>
+</section>
+
+<section class="shelf-tools">
+    <label>
+        <span aria-hidden="true">⌕</span>
+        <input @bind="_query" @bind:event="oninput" placeholder="Search product, brand, category or EAN" />
+    </label>
+    <div class="filter-pills" aria-label="Product filters">
+        <button class="@(_filter == ShelfFilter.All ? "active" : "")" @onclick="() => _filter = ShelfFilter.All">All</button>
+        <button class="@(_filter == ShelfFilter.WithPrice ? "active" : "")" @onclick="() => _filter = ShelfFilter.WithPrice">With price</button>
+        <button class="@(_filter == ShelfFilter.MyBasket ? "active" : "")" @onclick="() => _filter = ShelfFilter.MyBasket">From my basket</button>
+    </div>
 </section>
 
 @if (_busy)
 {
-    <p><em>Building recommendations…</em></p>
+    <p class="shelf-loading">Stocking Hanny Shelf…</p>
 }
 else
 {
-    <section class="dashboard-grid">
-        @foreach (var product in RecommendedProducts)
+    @if (_error is not null)
+    {
+        <p class="error" role="alert">@_error</p>
+    }
+
+    <section class="shelf-grid">
+        @foreach (var product in FilteredProducts.Take(60))
         {
-            <article class="app-card product-card">
-                @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
-                {
-                    <img src="@product.ImageUrl" alt="@product.Name" />
-                }
-                <div class="eyebrow">@RecommendationLabel(product)</div>
+            <article class="product-card">
+                <div class="product-image">
+                    @if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+                    {
+                        <img src="@product.ImageUrl" alt="@product.Name" loading="lazy" />
+                    }
+                    else
+                    {
+                        <span>No image yet</span>
+                    }
+                    @if (MatchesLatestCategory(product))
+                    {
+                        <b>For you</b>
+                    }
+                </div>
+                <div class="product-meta">
+                    <span>@(string.IsNullOrWhiteSpace(product.BrandName) ? "Independent" : product.BrandName)</span>
+                    @if (product.LatestPrice is not null)
+                    {
+                        <strong>@product.LatestPrice.Value.ToString("C")</strong>
+                    }
+                </div>
                 <h2>@product.Name</h2>
-                <p class="muted">@product.BrandName</p>
-                @if (!string.IsNullOrWhiteSpace(product.Category))
-                {
-                    <p class="muted">@product.Category</p>
-                }
+                <p>@(string.IsNullOrWhiteSpace(product.Category) ? "Category being refined" : product.Category)</p>
+                <footer>
+                    <span>@(string.IsNullOrWhiteSpace(product.Gtin) ? "EAN pending" : $"EAN {product.Gtin}")</span>
+                    <b>@(product.LatestPrice is null ? "Price history starts with receipts" : "Latest observed price")</b>
+                </footer>
             </article>
         }
     </section>
+
+    @if (!FilteredProducts.Any())
+    {
+        <div class="no-products">
+            <strong>No shelf match yet.</strong>
+            <span>Try a shorter product or brand name.</span>
+        </div>
+    }
 }
 
 @code {
     private BasketExpenseResponse? _latestExpense;
     private List<ProductSummary> _products = [];
+    private string? _query;
+    private string? _error;
+    private ShelfFilter _filter;
     private bool _busy;
 
-    private IEnumerable<ProductSummary> RecommendedProducts =>
+    private IEnumerable<ProductSummary> FilteredProducts =>
         _products
-            .Where(product => !string.IsNullOrWhiteSpace(product.ImageUrl))
-            .OrderByDescending(product => MatchesLatestCategory(product))
+            .Where(MatchesQuery)
+            .Where(product => _filter switch
+            {
+                ShelfFilter.WithPrice => product.LatestPrice is not null,
+                ShelfFilter.MyBasket => MatchesLatestCategory(product),
+                _ => true,
+            })
+            .OrderByDescending(MatchesLatestCategory)
             .ThenBy(product => product.LatestPrice is null)
-            .ThenBy(product => product.Name)
-            .Take(12);
+            .ThenBy(product => product.Name);
 
     protected override async Task OnInitializedAsync()
     {
@@ -58,10 +114,26 @@ else
             _products = (await Api.GetProductsAsync()).ToList();
             _latestExpense = await Api.GetLatestExpenseAsync();
         }
+        catch (Exception ex)
+        {
+            _error = $"Hanny Shelf could not be loaded. {ex.Message}";
+        }
         finally
         {
             _busy = false;
         }
+    }
+
+    private bool MatchesQuery(ProductSummary product)
+    {
+        if (string.IsNullOrWhiteSpace(_query))
+            return true;
+
+        var query = _query.Trim();
+        return product.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+               || product.BrandName?.Contains(query, StringComparison.OrdinalIgnoreCase) == true
+               || product.Category?.Contains(query, StringComparison.OrdinalIgnoreCase) == true
+               || product.Gtin?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private bool MatchesLatestCategory(ProductSummary product) =>
@@ -70,6 +142,5 @@ else
             && !string.IsNullOrWhiteSpace(product.Category)
             && product.Category.Contains(line.Category.Split(',')[0], StringComparison.OrdinalIgnoreCase)) == true;
 
-    private string RecommendationLabel(ProductSummary product) =>
-        MatchesLatestCategory(product) ? "Based on your basket" : "Catalog pick";
+    private enum ShelfFilter { All, WithPrice, MyBasket }
 }

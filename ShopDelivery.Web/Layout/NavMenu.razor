@@ -1,57 +1,54 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">SmartBasket</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
+<div class="brand-lockup">
+    <a href="" aria-label="Hanny home">
+        <span class="brand-seed" aria-hidden="true"></span>
+        <span>hanny</span>
+    </a>
+    <small>Clearer prices.<br />Fairer choices.</small>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-section">For you</div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Overview</NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="scan">Scan receipt</NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="expenses">My budget</NavLink>
-        </div>
+<nav class="desktop-nav">
+    <div class="nav-label">Everyday</div>
+    <NavLink href="" Match="NavLinkMatch.All">
+        <span class="nav-icon">⌂</span>
+        <span><strong>Home</strong><small>Your grocery overview</small></span>
+    </NavLink>
+    <NavLink href="scan">
+        <span class="nav-icon">▣</span>
+        <span><strong>Hanny Scan</strong><small>Receipt to insight</small></span>
+    </NavLink>
+    <NavLink href="products">
+        <span class="nav-icon">◫</span>
+        <span><strong>Hanny Shelf</strong><small>Know every product</small></span>
+    </NavLink>
+    <NavLink href="expenses">
+        <span class="nav-icon">◒</span>
+        <span><strong>Hanny Balance</strong><small>Budget, wellbeing, points</small></span>
+    </NavLink>
+    <NavLink href="shop">
+        <span class="nav-icon">≡</span>
+        <span><strong>Hanny Plan</strong><small>Recipes and smart baskets</small></span>
+    </NavLink>
+    <NavLink href="market">
+        <span class="nav-icon">◇</span>
+        <span><strong>Hanny Market</strong><small>Online shopping · soon</small></span>
+    </NavLink>
 
-        <div class="nav-section">Plan & shop</div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="recommendations">Recommendations</NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="loyalty">Loyalty points</NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="shop">Shop & baskets</NavLink>
-        </div>
+    <AuthorizeView Roles="admin">
+        <Authorized>
+            <div class="nav-label admin-label">Administration</div>
+            <NavLink href="admin">
+                <span class="nav-icon">⚙</span>
+                <span><strong>Master data</strong><small>Products and reviews</small></span>
+            </NavLink>
+            <NavLink href="catalog-health">
+                <span class="nav-icon">✓</span>
+                <span><strong>Catalog health</strong><small>Quality controls</small></span>
+            </NavLink>
+        </Authorized>
+    </AuthorizeView>
+</nav>
 
-        <AuthorizeView Roles="admin">
-            <Authorized>
-                <div class="nav-section admin-section">Administration</div>
-                <div class="nav-item px-3 admin-link">
-                    <NavLink class="nav-link" href="admin">Master data</NavLink>
-                </div>
-                <div class="nav-item px-3 admin-link">
-                    <NavLink class="nav-link" href="catalog-health">Catalog health</NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-    </nav>
+<div class="sidebar-note">
+    <span>Our shared mission</span>
+    <strong>Every confirmed receipt makes grocery prices more transparent.</strong>
 </div>
-
-@code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
-}

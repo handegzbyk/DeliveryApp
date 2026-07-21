@@ -4,9 +4,9 @@
 }
 
 .upload-panel {
-    background: linear-gradient(145deg, #12372a 0%, #176b45 62%, #dcefdc 200%);
+    background: linear-gradient(145deg, var(--honey), #ffdc91);
     border-radius: 28px;
-    color: white;
+    color: var(--oak);
     padding: clamp(1.5rem, 5vw, 3.5rem);
 }
 
@@ -18,14 +18,14 @@
 }
 
 .upload-panel p {
-    color: rgba(255, 255, 255, .82);
+    color: var(--oak-soft);
     max-width: 660px;
 }
 
 .receipt-picker {
     background: #fff;
     border-radius: 999px;
-    color: #12372a;
+    color: var(--oak);
     cursor: pointer;
     display: inline-flex;
     font-weight: 800;
@@ -57,7 +57,7 @@
 .quiet-button,
 .text-button {
     background: transparent;
-    color: #176b45;
+    color: var(--oak);
 }
 
 .receipt-summary {
@@ -93,7 +93,7 @@
 }
 
 .confirmation-progress {
-    background: #edf5ee;
+    background: #fff7e8;
     border-radius: 18px;
     margin-bottom: 1rem;
     padding: .9rem 1rem;
@@ -116,7 +116,7 @@
 }
 
 .progress-track {
-    background: #d8e5d9;
+    background: #eadfce;
     border-radius: 999px;
     height: 7px;
     margin-top: .65rem;
@@ -124,7 +124,7 @@
 }
 
 .progress-fill {
-    background: linear-gradient(90deg, #176b45, #6fbf73);
+    background: linear-gradient(90deg, var(--honey-deep), var(--honey));
     height: 100%;
     transition: width .25s ease;
 }
@@ -170,8 +170,8 @@
 
 .candidate-card {
     align-content: start;
-    background: #f8faf7;
-    border: 1px solid #dce4da;
+    background: #fffdf8;
+    border: 1px solid var(--line);
     border-radius: 18px;
     color: #17211c;
     display: grid;
@@ -186,14 +186,14 @@
 
 .candidate-card:hover,
 .candidate-card:focus-visible {
-    border-color: #176b45;
-    box-shadow: 0 8px 22px rgba(23, 107, 69, .14);
+    border-color: var(--honey-deep);
+    box-shadow: 0 8px 22px rgba(66, 56, 52, .14);
     transform: translateY(-2px);
 }
 
 .candidate-card.suggested {
-    border-color: #66a879;
-    background: #f1f8f1;
+    border-color: var(--honey-deep);
+    background: #fff8e9;
 }
 
 .candidate-image {
@@ -233,7 +233,7 @@
 }
 
 .candidate-action {
-    color: #176b45;
+    color: var(--oak);
     font-size: .72rem;
     font-weight: 800;
 }
@@ -245,7 +245,7 @@
 }
 
 .suggested-badge {
-    background: #176b45;
+    background: var(--oak);
     border-radius: 999px;
     color: white;
     font-size: .62rem;
@@ -258,8 +258,8 @@
 
 .ready-panel {
     align-items: center;
-    background: #edf7ee;
-    border: 1px solid #c9e1cc;
+    background: #fff8e9;
+    border: 1px solid #ead6aa;
     border-radius: 24px;
     display: flex;
     gap: 1rem;
@@ -273,7 +273,7 @@
 
 .ready-icon {
     align-items: center;
-    background: #176b45;
+    background: var(--honey-deep);
     border-radius: 50%;
     color: white;
     display: flex;
@@ -311,7 +311,7 @@
     align-items: center;
     background: #eef4ed;
     border-radius: 10px;
-    color: #176b45;
+    color: var(--oak);
     display: flex;
     height: 42px;
     justify-content: center;
@@ -331,20 +331,20 @@
 }
 
 .budget-action {
-    background: #12372a;
+    background: var(--honey);
     border-radius: 20px;
-    color: white;
+    color: var(--oak);
     margin-top: 1.25rem;
     padding: 1rem;
 }
 
 .budget-action span {
-    color: rgba(255, 255, 255, .7);
+    color: var(--oak-soft);
 }
 
 .budget-action .primary {
     background: #fff;
-    color: #12372a;
+    color: var(--oak);
     flex: 0 0 auto;
 }
 

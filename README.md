@@ -1,4 +1,4 @@
-# DeliveryApp
+# Hanny
 
 ## Customer authentication and ownership
 
@@ -13,8 +13,10 @@ For local Development, both projects use the development-only `local-customer` i
 also accepts `X-Development-Customer` in Development so isolation can be tested with two simulated
 customers. This header is never enabled outside Development.
 
-For a deployed environment, register a browser/OpenID Connect application and an API scope with
-your identity provider. Add these redirect URIs to the browser application:
+For the public shopper app, create separate Web (SPA) and API registrations in a Microsoft Entra
+External ID customer tenant. Associate the sign-up/sign-in user flow with the Web registration,
+then add the API's `access_as_user` delegated permission to the Web registration. Add these redirect
+URIs to the Web application:
 
 - `https://<web-host>/authentication/login-callback`
 - `https://<web-host>/authentication/logout-callback`
@@ -23,17 +25,17 @@ Set the public browser values in `ShopDelivery.Web/wwwroot/appsettings.json`:
 
 ```json
 "Authentication": {
-  "Authority": "https://<identity-provider>/<tenant>",
-  "ClientId": "<browser-client-id>",
-  "ApiScope": "<api-scope>"
+  "Authority": "https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0",
+  "ClientId": "<web-application-client-id>",
+  "ApiScope": "api://<api-application-client-id>/access_as_user"
 }
 ```
 
 Set the API validation values before provisioning:
 
 ```bash
-azd env set AUTHENTICATION_AUTHORITY "https://<identity-provider>/<tenant>"
-azd env set AUTHENTICATION_AUDIENCE "<api-audience>"
+azd env set AUTHENTICATION_AUTHORITY "https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0"
+azd env set AUTHENTICATION_AUDIENCE "<api-application-client-id>"
 ```
 
 Production startup intentionally fails if authentication is not configured; it never falls back
@@ -41,13 +43,13 @@ to a client-supplied customer id.
 
 `Authority` is the OpenID Connect issuer base URL. `ClientId` identifies the browser application.
 `ApiScope` is the full delegated scope requested by the browser, while API `Audience` is the token
-`aud` value configured for the API registration. For example, with Microsoft Entra ID:
+`aud` value configured for the API registration. For an External ID access token version 2 setup:
 
 ```text
-Authority: https://login.microsoftonline.com/<tenant-id>/v2.0
-ClientId:  <single-page-application-client-id>
+Authority: https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0
+ClientId:  <web-application-client-id>
 ApiScope:  api://<api-application-client-id>/access_as_user
-Audience:  api://<api-application-client-id>
+Audience:  <api-application-client-id>
 ```
 
 For Entra application roles, keep `Authentication:RoleClaim` set to `roles` in both projects and
