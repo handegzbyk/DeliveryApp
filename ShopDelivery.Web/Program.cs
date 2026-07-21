@@ -48,7 +48,10 @@ else
         options.ProviderOptions.Authority = authority;
         options.ProviderOptions.ClientId = clientId;
         options.ProviderOptions.ResponseType = "code";
-        options.ProviderOptions.DefaultScopes.Add(apiScope);
+        // Do not add the API scope here: Entra External ID returns an API-audience
+        // token when resource scopes are included at login, which causes the OIDC
+        // library's userinfo fetch (graph.microsoft.com) to fail with 401.
+        // ApiAuthorizationMessageHandler requests the API scope on-demand instead.
         options.UserOptions.RoleClaim = roleClaim;
     });
     builder.Services.AddScoped<ApiAuthorizationMessageHandler>();
