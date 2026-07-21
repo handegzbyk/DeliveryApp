@@ -135,10 +135,10 @@ app.UseExceptionHandler(handler => handler.Run(async context =>
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
         .CreateLogger("GlobalExceptionHandler");
     var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
-    logger.LogError(exceptionFeature?.Error, "Unhandled exception for {Method} {Path}",
-        context.Request.Method, context.Request.Path);
+    var correlationId = context.TraceIdentifier;
+    logger.LogError(exceptionFeature?.Error, "Unhandled exception (correlationId: {CorrelationId})", correlationId);
     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-    await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred." });
+    await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred.", correlationId });
 }));
 app.UseAuthentication();
 app.UseAuthorization();
