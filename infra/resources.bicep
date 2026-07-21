@@ -105,7 +105,7 @@ module sqlServer 'br/public:avm/res/sql/server:0.4.0' = {
     firewallRules: [
       {
         // Allow other Azure services (Container App) to reach the server.
-        name: 'AllowAzureSercices'
+        name: 'AllowAzureServices'
         startIpAddress: '0.0.0.0'
         endIpAddress: '0.0.0.0'
       }
