@@ -1,75 +1,177 @@
-.page {
-    display: flex;
-    flex-direction: column;
+.app-shell {
     min-height: 100vh;
-    position: relative;
 }
 
-main {
-    background: #f6f7f4;
-    flex: 1;
+.app-sidebar {
+    background: white;
+    border-right: 1px solid var(--line);
+    color: var(--oak);
+    display: none;
 }
 
-.sidebar {
-    background: linear-gradient(180deg, #12372a 0%, #0f241e 58%, #1e1b12 100%);
+.app-main {
+    min-height: 100vh;
+    padding-bottom: 5.5rem;
 }
 
-.top-row {
+.app-header {
     align-items: center;
-    background: rgba(255, 255, 255, .86);
-    border-bottom: 1px solid #e1e4dc;
-    color: #526057;
+    backdrop-filter: blur(18px);
+    background: color-mix(in srgb, white 90%, transparent);
+    border-bottom: 1px solid rgba(66, 56, 52, .09);
     display: flex;
     gap: 1rem;
-    height: 3.5rem;
+    height: 4.35rem;
     justify-content: space-between;
+    padding: 0 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 20;
 }
 
-.top-row ::deep a {
-    background: #12372a;
-    border-radius: 999px;
-    color: white;
-    padding: .45rem .9rem;
+.mobile-brand {
+    align-items: center;
+    color: var(--oak);
+    display: inline-flex;
+    font-size: 1.45rem;
+    font-weight: 900;
+    gap: .45rem;
+    letter-spacing: -.07em;
     text-decoration: none;
+}
+
+.brand-seed {
+    background: var(--honey);
+    border-radius: 70% 30% 65% 35%;
+    display: inline-block;
+    height: 1rem;
+    rotate: -28deg;
+    width: .72rem;
+}
+
+.mission-line {
+    align-items: center;
+    color: var(--text-muted);
+    display: none;
+    font-size: .82rem;
+    font-weight: 700;
+    gap: .5rem;
+}
+
+.mission-dot {
+    background: var(--jade);
+    border-radius: 50%;
+    height: .45rem;
+    width: .45rem;
 }
 
 .customer-actions {
     align-items: center;
     display: flex;
-    gap: .7rem;
+    gap: .65rem;
 }
 
-.content {
-    padding-top: 1.5rem;
+.header-scan {
+    background: var(--honey);
+    border-radius: 999px;
+    color: var(--oak);
+    display: none;
+    font-size: .82rem;
+    font-weight: 800;
+    padding: .65rem .95rem;
+    text-decoration: none;
 }
 
-@media (max-width: 640.98px) {
-    .top-row {
-        justify-content: space-between;
+.app-content {
+    margin: 0 auto;
+    max-width: 1320px;
+    padding: 1rem;
+}
+
+.mobile-nav {
+    align-items: end;
+    background: rgba(255, 255, 255, .97);
+    border-top: 1px solid rgba(66, 56, 52, .1);
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    left: 0;
+    padding: .45rem .35rem max(.45rem, env(safe-area-inset-bottom));
+    position: fixed;
+    right: 0;
+    z-index: 30;
+}
+
+.mobile-nav ::deep a {
+    align-items: center;
+    color: #887d76;
+    display: flex;
+    flex-direction: column;
+    font-size: 1.25rem;
+    gap: .1rem;
+    justify-content: center;
+    min-height: 3.35rem;
+    text-decoration: none;
+}
+
+.mobile-nav ::deep a small {
+    font-size: .65rem;
+    font-weight: 800;
+}
+
+.mobile-nav ::deep a.active {
+    color: var(--oak);
+}
+
+.mobile-nav ::deep a.scan-tab {
+    background: var(--honey);
+    border: 5px solid white;
+    border-radius: 50%;
+    box-shadow: 0 8px 20px rgba(66, 56, 52, .18);
+    color: var(--oak);
+    height: 4.4rem;
+    margin: -1.55rem auto 0;
+    width: 4.4rem;
+}
+
+.public-shell {
+    min-height: 100vh;
+}
+
+@media (min-width: 720px) {
+    .mission-line,
+    .header-scan {
+        display: inline-flex;
+    }
+
+    .app-content {
+        padding: 1.5rem 2rem 2.5rem;
     }
 }
 
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
+@media (min-width: 1020px) {
+    .app-shell {
+        display: grid;
+        grid-template-columns: 248px minmax(0, 1fr);
     }
 
-    .sidebar {
+    .app-sidebar {
+        display: block;
         height: 100vh;
         position: sticky;
         top: 0;
-        width: 260px;
     }
 
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
+    .app-main {
+        padding-bottom: 0;
     }
 
-    .top-row,
-    article {
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+    .mobile-brand,
+    .mobile-nav {
+        display: none;
+    }
+
+    .app-header {
+        padding: 0 2rem;
     }
 }

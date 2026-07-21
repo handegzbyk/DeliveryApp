@@ -1,91 +1,207 @@
 @page "/"
-@attribute [Authorize]
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-<PageTitle>SmartBasket · Your grocery rhythm</PageTitle>
+<PageTitle>Hanny · Clearer prices, fairer choices</PageTitle>
 
-<section class="hero">
-    <div class="eyebrow">Your grocery rhythm</div>
-    <h1>A basket that gets more personal with every receipt.</h1>
-    <p>
-        Confirm what you bought, keep your monthly budget current, and receive suggestions shaped by your own habits.
-    </p>
-    <a class="button-primary" href="scan">Scan a receipt</a>
-</section>
+<AuthorizeView>
+    <NotAuthorized>
+        <section class="welcome-screen">
+            <header class="welcome-header">
+                <a class="welcome-logo" href="" aria-label="Hanny home">
+                    <span class="logo-seed" aria-hidden="true"></span>
+                    hanny
+                </a>
+                <span class="language-pill">DE · EN</span>
+            </header>
 
-@if (_busy)
-{
-    <p><em>Preparing your overview…</em></p>
-}
-else if (_latestExpense is null)
-{
-    <section class="app-card">
-        <div class="eyebrow">Start your story</div>
-        <h2>Your budget is ready for its first receipt.</h2>
-        <p class="muted">Scan, confirm each product, and the basket will be added to your personal monthly view.</p>
-        <a class="button-primary" href="scan">Add my first receipt</a>
-    </section>
-}
-else
-{
-    <section class="dashboard-grid">
-        <article class="app-card">
-            <div class="eyebrow">Spent this month</div>
-            <div class="metric">@_latestExpense.Dashboard.Spent.ToString("C")</div>
-            <p class="muted">Across your confirmed receipts.</p>
-        </article>
-        <article class="app-card">
-            <div class="eyebrow">Still available</div>
-            <div class="metric">@_latestExpense.Dashboard.Remaining.ToString("C")</div>
-            <p class="muted">From @_latestExpense.Dashboard.MonthlyBudget.ToString("C") this month.</p>
-        </article>
-        <article class="app-card">
-            <div class="eyebrow">Latest basket</div>
-            <h2>@_latestExpense.Total.ToString("C")</h2>
-            <p class="muted">@_latestExpense.StoreName · @_latestExpense.PurchasedAt.ToString("d")</p>
-            <a href="@($"budget/{_latestExpense.ReceiptId}")">Open basket detail</a>
-        </article>
-    </section>
+            <div class="welcome-body">
+                <div class="welcome-copy">
+                    <div class="welcome-kicker">Your everyday market companion</div>
+                    <h1>Clearer prices.<br /><em>Fairer choices.</em></h1>
+                    <p>Scan receipts, understand your basket, plan smarter shops, and help make grocery prices more transparent for everyone.</p>
+                    <div class="welcome-proof">
+                        <span>✓ Personal budgets stay personal</span>
+                        <span>✓ Product and price knowledge grows together</span>
+                    </div>
+                </div>
 
-    <p><a class="button-primary" href="expenses">Open my full budget</a></p>
-}
+                <div class="welcome-art" aria-hidden="true">
+                    <div class="sun-disc"></div>
+                    <div class="receipt-card">
+                        <span class="receipt-brand">hanny</span>
+                        <span class="receipt-line long"></span>
+                        <span class="receipt-line"></span>
+                        <span class="receipt-line short"></span>
+                        <span class="receipt-total">€ 42,38</span>
+                    </div>
+                    <div class="price-chip chip-one">−12%</div>
+                    <div class="price-chip chip-two">+25 pts</div>
+                    <div class="basket-shape"><span></span><span></span><span></span></div>
+                </div>
+            </div>
 
-<section class="feature-grid">
-    <article class="app-card">
-        <div class="eyebrow">For your next trip</div>
-        <h2>Personal recommendations</h2>
-        <p class="muted">Suggestions become more relevant as your confirmed basket history grows.</p>
-        <a href="recommendations">See my recommendations</a>
-    </article>
-    <article class="app-card">
-        <div class="eyebrow">Your rewards</div>
-        <h2>Loyalty that follows you</h2>
-        <p class="muted">Turn receipt scans and confirmed matches into visible progress.</p>
-        <a href="loyalty">Open my loyalty</a>
-    </article>
-    <article class="app-card">
-        <div class="eyebrow">Your next basket</div>
-        <h2>Plan before you shop</h2>
-        <p class="muted">Build a list from your habits and prepare it for shopping or delivery.</p>
-        <a href="shop">Plan a basket</a>
-    </article>
-</section>
+            <footer class="welcome-actions">
+                <div>
+                    <strong>Make every receipt count.</strong>
+                    <span>Free to start · built for everyday shoppers</span>
+                </div>
+                <div class="auth-buttons">
+                    <a class="auth-secondary" href="authentication/login">Sign in</a>
+                    <a class="auth-primary" href="authentication/login">Create account</a>
+                </div>
+            </footer>
+        </section>
+    </NotAuthorized>
+    <Authorized>
+        <section class="home-hero">
+            <div class="hero-copy">
+                <div class="eyebrow light">Your market, made clearer</div>
+                <h1>Make every receipt work harder.</h1>
+                <p>One scan updates your spending, strengthens product matches, and earns Hanny Points.</p>
+                <div class="hero-actions">
+                    <a class="button-primary honey-button" href="scan">Scan a receipt</a>
+                    <a class="text-link light-link" href="products">Explore products →</a>
+                </div>
+            </div>
+            <div class="hero-receipt" aria-hidden="true">
+                <div class="mini-receipt">
+                    <span>hanny scan</span>
+                    <i></i><i></i><i></i>
+                    <strong>€ 36,74</strong>
+                </div>
+                <div class="hero-badge">+64 points</div>
+            </div>
+        </section>
 
-@if (_error is not null)
-{
-    <p class="error" role="alert">@_error</p>
-}
+        @if (_busy)
+        {
+            <div class="loading-card"><span></span>Preparing your Hanny overview…</div>
+        }
+        else if (_latestExpense is null)
+        {
+            <section class="first-step-card">
+                <div class="step-number">01</div>
+                <div>
+                    <div class="eyebrow">Start with Hanny Scan</div>
+                    <h2>Your first receipt unlocks your personal dashboard.</h2>
+                    <p>Confirm each product once, then Hanny adds the expense to your budget and starts your points progress.</p>
+                </div>
+                <a class="button-primary" href="scan">Add first receipt</a>
+            </section>
+        }
+        else
+        {
+            <section class="home-section">
+                <div class="section-heading">
+                    <div>
+                        <div class="eyebrow">Today at a glance</div>
+                        <h2>Your Hanny Balance</h2>
+                    </div>
+                    <a href="expenses">Open dashboard →</a>
+                </div>
+                <div class="snapshot-grid">
+                    <article class="snapshot-card spend-card">
+                        <span>Spent this month</span>
+                        <strong>@_latestExpense.Dashboard.Spent.ToString("C")</strong>
+                        <small>@BudgetUsedPercent% of your monthly budget</small>
+                        <div class="mini-progress"><i style="width:@BudgetUsedPercent%"></i></div>
+                    </article>
+                    <article class="snapshot-card">
+                        <span>Still available</span>
+                        <strong>@_latestExpense.Dashboard.Remaining.ToString("C")</strong>
+                        <small>From @_latestExpense.Dashboard.MonthlyBudget.ToString("C")</small>
+                    </article>
+                    <article class="snapshot-card points-card">
+                        <span>Hanny Points</span>
+                        <strong>@EstimatedPoints</strong>
+                        <small>Latest receipt + confirmed items</small>
+                    </article>
+                    <article class="snapshot-card latest-card">
+                        <span>Latest basket</span>
+                        <strong>@_latestExpense.Total.ToString("C")</strong>
+                        <small>@_latestExpense.StoreName · @_latestExpense.PurchasedAt.ToString("d")</small>
+                        <a href="@($"budget/{_latestExpense.ReceiptId}")">View receipt</a>
+                    </article>
+                </div>
+            </section>
+        }
+
+        <section class="home-section">
+            <div class="section-heading">
+                <div>
+                    <div class="eyebrow">Everything in one place</div>
+                    <h2>Choose your next move</h2>
+                </div>
+            </div>
+            <div class="service-grid">
+                <a class="service-card scan-service" href="scan">
+                    <span class="service-index">01</span>
+                    <span class="service-icon">▣</span>
+                    <strong>Hanny Scan</strong>
+                    <p>Turn a receipt into expenses, product matches, and points.</p>
+                    <b>Scan now →</b>
+                </a>
+                <a class="service-card" href="products">
+                    <span class="service-index">02</span>
+                    <span class="service-icon">◫</span>
+                    <strong>Hanny Shelf</strong>
+                    <p>Explore product details, brands, categories, and observed prices.</p>
+                    <b>Open the shelf →</b>
+                </a>
+                <a class="service-card balance-service" href="expenses">
+                    <span class="service-index">03</span>
+                    <span class="service-icon">◒</span>
+                    <strong>Hanny Balance</strong>
+                    <p>Keep budget, basket wellbeing, and Hanny Points together.</p>
+                    <b>See my balance →</b>
+                </a>
+                <a class="service-card plan-service" href="shop">
+                    <span class="service-index">04</span>
+                    <span class="service-icon">≡</span>
+                    <strong>Hanny Plan</strong>
+                    <p>Move from recipe to list, add notes, and compare store estimates.</p>
+                    <b>Plan a basket →</b>
+                </a>
+                <a class="service-card market-service" href="market">
+                    <span class="service-index">05</span>
+                    <span class="coming-pill">Coming later</span>
+                    <span class="service-icon">◇</span>
+                    <strong>Hanny Market</strong>
+                    <p>Order your optimized basket online when market integrations arrive.</p>
+                    <b>See the roadmap →</b>
+                </a>
+            </div>
+        </section>
+
+        @if (_error is not null)
+        {
+            <p class="error" role="alert">@_error</p>
+        }
+    </Authorized>
+</AuthorizeView>
 
 @code {
     private BasketExpenseResponse? _latestExpense;
     private string? _error;
     private bool _busy;
 
+    private decimal BudgetUsedPercent =>
+        _latestExpense is null || _latestExpense.Dashboard.MonthlyBudget <= 0
+            ? 0
+            : Math.Min(100, Math.Round(_latestExpense.Dashboard.Spent / _latestExpense.Dashboard.MonthlyBudget * 100));
+
+    private int EstimatedPoints =>
+        _latestExpense is null ? 0 : 60 + _latestExpense.Lines.Count * 3;
+
     protected override async Task OnInitializedAsync()
     {
-        _busy = true;
+        var authentication = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authentication.User.Identity?.IsAuthenticated != true)
+            return;
 
+        _busy = true;
         try
         {
             _latestExpense = await Api.GetLatestExpenseAsync();

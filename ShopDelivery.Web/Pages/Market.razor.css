@@ -1,0 +1,27 @@
+.market-coming { background: var(--honey); border-radius: 28px; display: grid; min-height: calc(100vh - 7.5rem); overflow: hidden; padding: 1.2rem; }
+.market-coming > header { align-items: center; display: flex; justify-content: space-between; }
+.market-coming > header a { color: var(--oak); font-size: .72rem; font-weight: 900; text-decoration: none; }
+.market-coming > header span { color: var(--oak); font-size: .82rem; font-weight: 900; }
+.market-coming-body { align-items: center; display: grid; gap: 1.5rem; padding: 2rem 0; }
+.market-copy h1 { font-size: clamp(2.8rem, 8vw, 6rem); line-height: .9; margin: .5rem 0 1rem; max-width: 800px; }
+.market-copy p { color: var(--oak-soft); line-height: 1.6; max-width: 620px; }
+.market-copy .button-primary { margin-top: .8rem; }
+.market-art { align-items: center; display: flex; justify-content: center; min-height: 300px; position: relative; }
+.market-bag { align-items: end; background: var(--oak); border-radius: 18px 18px 40px 40px; box-shadow: 0 28px 50px rgba(66,56,52,.22); display: flex; gap: .5rem; height: 190px; justify-content: center; padding: 1.5rem; position: relative; rotate: 4deg; width: 210px; z-index: 2; }
+.market-bag::before { border: 10px solid var(--oak); border-bottom: 0; border-radius: 80px 80px 0 0; content: ""; height: 65px; left: 50%; position: absolute; top: -48px; translate: -50% 0; width: 115px; }
+.market-bag > span { background: var(--jade); border-radius: 999px 999px 4px 4px; height: 95px; width: 26px; }
+.market-bag > span:nth-child(2) { background: var(--fade-citrus); height: 125px; }
+.market-bag > span:nth-child(3) { background: var(--cream); height: 110px; }
+.market-bag > span:nth-child(4) { background: #b44f77; height: 80px; }
+.market-bag strong { bottom: 1.1rem; color: var(--honey); font-size: 1.15rem; left: 1.2rem; letter-spacing: -.06em; position: absolute; }
+.market-orbit { border: 2px dashed rgba(66,56,52,.3); border-radius: 50%; height: 280px; position: absolute; width: 280px; }
+.market-note { background: white; border-radius: 999px; color: var(--oak); font-size: .66rem; padding: .7rem .9rem; position: absolute; right: 2%; top: 8%; z-index: 3; }
+.market-coming > footer { border-top: 1px solid rgba(66,56,52,.16); display: grid; gap: .8rem; grid-template-columns: repeat(3,1fr); padding-top: 1rem; }
+.market-coming > footer div { display: grid; gap: .2rem; }
+.market-coming > footer strong { font-size: 1.1rem; }
+.market-coming > footer span { color: var(--oak-soft); font-size: .62rem; font-weight: 800; }
+
+@media (min-width: 800px) {
+    .market-coming { padding: 2rem; }
+    .market-coming-body { grid-template-columns: minmax(0,1.2fr) minmax(320px,.8fr); }
+}

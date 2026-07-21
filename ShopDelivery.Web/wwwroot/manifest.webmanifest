@@ -1,11 +1,11 @@
 {
-  "name": "ShopDelivery.Web",
-  "short_name": "ShopDelivery.Web",
+  "name": "Hanny",
+  "short_name": "Hanny",
   "id": "./",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#03173d",
+  "theme_color": "#f2c36b",
   "prefer_related_applications": false,
   "icons": [
     {

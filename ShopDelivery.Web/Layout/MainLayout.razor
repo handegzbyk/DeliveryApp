@@ -1,20 +1,60 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inherits LayoutComponentBase
 
-    <main>
-        <div class="top-row px-4">
-            <span>Receipt intelligence · grocery planning · delivery baskets</span>
-            <div class="customer-actions">
-                <LoginDisplay />
-                <a href="scan">Scan now</a>
-            </div>
+<AuthorizeView>
+    <Authorized Context="authentication">
+        <div class="app-shell">
+            <aside class="app-sidebar" aria-label="Primary navigation">
+                <NavMenu />
+            </aside>
+
+            <main class="app-main">
+                <header class="app-header">
+                    <a class="mobile-brand" href="" aria-label="Hanny home">
+                        <span class="brand-seed" aria-hidden="true"></span>
+                        <span>hanny</span>
+                    </a>
+                    <div class="mission-line">
+                        <span class="mission-dot" aria-hidden="true"></span>
+                        Clearer prices. Fairer choices.
+                    </div>
+                    <div class="customer-actions">
+                        <LoginDisplay />
+                        <a class="header-scan" href="scan">Scan receipt</a>
+                    </div>
+                </header>
+
+                <article class="app-content">
+                    @Body
+                </article>
+            </main>
+
+            <nav class="mobile-nav" aria-label="Mobile navigation">
+                <NavLink href="" Match="NavLinkMatch.All">
+                    <span aria-hidden="true">⌂</span>
+                    <small>Home</small>
+                </NavLink>
+                <NavLink href="products">
+                    <span aria-hidden="true">◫</span>
+                    <small>Shelf</small>
+                </NavLink>
+                <NavLink class="scan-tab" href="scan">
+                    <span aria-hidden="true">▣</span>
+                    <small>Scan</small>
+                </NavLink>
+                <NavLink href="expenses">
+                    <span aria-hidden="true">◒</span>
+                    <small>Balance</small>
+                </NavLink>
+                <NavLink href="shop">
+                    <span aria-hidden="true">≡</span>
+                    <small>Plan</small>
+                </NavLink>
+            </nav>
         </div>
-
-        <article class="content px-4">
+    </Authorized>
+    <NotAuthorized>
+        <main class="public-shell">
             @Body
-        </article>
-    </main>
-</div>
+        </main>
+    </NotAuthorized>
+</AuthorizeView>

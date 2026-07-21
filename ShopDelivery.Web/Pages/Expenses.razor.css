@@ -1,0 +1,109 @@
+.balance-hero {
+    align-items: end;
+    background: linear-gradient(135deg, var(--honey), #ffdc91);
+    border-radius: 28px;
+    color: var(--oak);
+    display: grid;
+    gap: 1.5rem;
+    padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.balance-hero h1 { color: var(--oak); font-size: clamp(2.2rem, 6vw, 4.5rem); line-height: .98; margin: .45rem 0 .8rem; max-width: 880px; }
+.balance-hero p { color: var(--oak-soft); margin-bottom: 0; max-width: 720px; }
+.balance-scan { background: white; color: var(--oak); white-space: nowrap; }
+.balance-loading { background: white; border: 1px solid var(--line); border-radius: 20px; color: var(--text-muted); margin-top: 1rem; padding: 1.2rem; }
+
+.empty-balance {
+    align-items: center;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 1.25rem;
+}
+
+.empty-balance h2 { margin: .2rem 0; }
+.empty-balance p { color: var(--text-muted); margin: 0; }
+.empty-icon { align-items: center; background: var(--honey); border-radius: 18px; display: flex; font-size: 1.5rem; height: 3.5rem; justify-content: center; width: 3.5rem; }
+
+.balance-overview {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.balance-card,
+.detail-card {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 1.15rem;
+}
+
+.budget-card { background: #fff8e9; }
+.wellbeing-card { background: white; }
+.points-card { background: #fff4d9; }
+
+.card-topline,
+.detail-heading,
+.breakdown-item > div:first-child {
+    align-items: center;
+    display: flex;
+    gap: .8rem;
+    justify-content: space-between;
+}
+
+.card-topline span { color: var(--text-muted); font-size: .72rem; font-weight: 900; text-transform: uppercase; }
+.card-topline b { background: rgba(66, 56, 52, .08); border-radius: 999px; font-size: .66rem; padding: .35rem .5rem; }
+.balance-card > strong { display: block; font-size: clamp(2rem, 8vw, 3.2rem); margin-top: 1.2rem; }
+.balance-card > small { color: var(--text-muted); display: block; font-size: .74rem; }
+.balance-card > p { color: var(--text-muted); font-size: .76rem; margin: .7rem 0 0; }
+
+.balance-progress,
+.points-track,
+.thin-track { background: rgba(66, 56, 52, .1); border-radius: 999px; height: 8px; margin-top: 1rem; overflow: hidden; }
+.balance-progress i { background: var(--honey-deep); display: block; height: 100%; }
+.points-track i { background: var(--fade-citrus); display: block; height: 100%; }
+.balance-status { font-weight: 800; }
+.balance-status.negative { color: var(--danger); }
+
+.category-dots { display: flex; gap: .35rem; margin-top: 1rem; }
+.category-dots i { background: rgba(66, 56, 52, .12); border-radius: 50%; height: .7rem; width: .7rem; }
+.category-dots i.filled { background: var(--honey-deep); }
+
+.balance-detail-grid { display: grid; gap: 1rem; margin-top: 1rem; }
+.detail-heading h2 { margin: .2rem 0 0; }
+.detail-heading > strong { font-size: 1.4rem; }
+.latest-basket > p { color: var(--text-muted); font-size: .78rem; }
+.latest-basket > a { color: var(--oak); display: inline-block; font-size: .78rem; font-weight: 900; margin-top: 1rem; }
+
+.latest-products { display: flex; margin: .8rem 0; }
+.latest-products > span { align-items: center; background: white; border: 2px solid var(--cream); border-radius: 50%; display: flex; height: 48px; justify-content: center; margin-left: -8px; overflow: hidden; width: 48px; }
+.latest-products > span:first-child { margin-left: 0; }
+.latest-products img { height: 38px; object-fit: contain; width: 38px; }
+
+.breakdown-item { margin-top: .9rem; }
+.breakdown-item span { color: var(--text-muted); font-size: .76rem; }
+.breakdown-item strong { font-size: .78rem; }
+.thin-track { height: 6px; margin-top: .4rem; }
+.thin-track i { background: var(--honey-deep); display: block; height: 100%; }
+.category-track i { background: var(--honey-deep); }
+
+.wellbeing-note { background: var(--cream-deep); border-radius: 18px; margin-top: 1rem; padding: 1rem; }
+.wellbeing-note span { color: var(--oak); font-size: .66rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.wellbeing-note p { color: var(--text-muted); font-size: .76rem; margin: .3rem 0 0; }
+
+@media (min-width: 720px) {
+    .balance-hero { grid-template-columns: minmax(0, 1fr) auto; }
+    .empty-balance { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .balance-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .balance-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .latest-basket { grid-column: 1 / -1; }
+}
+
+@media (min-width: 1120px) {
+    .balance-detail-grid { grid-template-columns: 1.15fr 1fr 1fr; }
+    .latest-basket { grid-column: auto; }
+}

@@ -7,8 +7,9 @@
 
 .budget-hero > div,
 .dashboard-grid > article {
-    border: 1px solid #ddd;
-    border-radius: 12px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 18px;
     padding: 1rem;
 }
 
@@ -17,13 +18,13 @@
 }
 
 .label {
-    color: #666;
+    color: var(--text-muted);
     font-size: .8rem;
     text-transform: uppercase;
 }
 
 .over-budget {
-    color: #b32121;
+    color: var(--danger);
 }
 
 .budget-progress {
@@ -39,14 +40,14 @@
 }
 
 .budget-setting label {
-    color: #526057;
+    color: var(--text-muted);
     font-size: .82rem;
     font-weight: 700;
     grid-column: 1 / -1;
 }
 
 .budget-setting input {
-    border: 1px solid #cfd7cf;
+    border: 1px solid var(--line);
     border-radius: 10px;
     padding: .6rem .7rem;
 }
@@ -58,7 +59,7 @@
 }
 
 .progress-track {
-    background: #eee;
+    background: var(--cream-deep);
     border-radius: 999px;
     height: 14px;
     margin-top: .35rem;
@@ -70,7 +71,7 @@
 }
 
 .progress-fill {
-    background: #2d7;
+    background: var(--honey-deep);
     height: 100%;
 }
 
@@ -82,7 +83,7 @@
 
 .expense-line {
     align-items: center;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--line);
     display: grid;
     gap: .75rem;
     grid-template-columns: 72px minmax(0, 1fr) auto;
@@ -90,7 +91,7 @@
 }
 
 .line-image {
-    border: 1px solid #ddd;
+    border: 1px solid var(--line);
     border-radius: 10px;
     display: grid;
     height: 72px;
@@ -106,9 +107,9 @@
 
 .image-placeholder {
     align-items: center;
-    background: #f4f4f4;
+    background: var(--cream);
     border-radius: 8px;
-    color: #777;
+    color: var(--text-muted);
     display: flex;
     font-size: .75rem;
     height: 60px;
@@ -118,7 +119,7 @@
 }
 
 .hint {
-    color: #666;
+    color: var(--text-muted);
     font-size: .9rem;
 }
 
@@ -128,7 +129,7 @@
 }
 
 .line-price span {
-    color: #666;
+    color: var(--text-muted);
     display: block;
     font-size: .85rem;
 }

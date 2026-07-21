@@ -22,7 +22,9 @@ builder.Configuration["ResolvedApiBaseUrl"] = apiBaseUrl;
 var apiClient = builder.Services.AddHttpClient<ShopApiClient>(client =>
     client.BaseAddress = new Uri(apiBaseUrl));
 
-if (builder.HostEnvironment.IsDevelopment())
+var useDevelopmentIdentity = builder.HostEnvironment.IsDevelopment()
+                             && builder.Configuration.GetValue("Authentication:UseDevelopmentIdentity", true);
+if (useDevelopmentIdentity)
 {
     builder.Services.AddAuthorizationCore();
     builder.Services.AddScoped<AuthenticationStateProvider, DevelopmentAuthenticationStateProvider>();

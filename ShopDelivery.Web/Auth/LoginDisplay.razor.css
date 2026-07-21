@@ -1,5 +1,19 @@
 .customer-name {
-    color: #33453b;
-    font-size: .88rem;
-    font-weight: 700;
+    color: var(--oak);
+    display: none;
+    font-size: .8rem;
+    font-weight: 800;
+}
+
+::deep a {
+    color: var(--oak);
+    font-size: .78rem;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+@media (min-width: 640px) {
+    .customer-name {
+        display: inline;
+    }
 }

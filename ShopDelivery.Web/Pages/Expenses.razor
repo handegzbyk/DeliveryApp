@@ -1,61 +1,138 @@
 @page "/expenses"
+@page "/balance"
 @attribute [Authorize]
 @using ShopDelivery.Shared
 @inject ShopApiClient Api
 @inject NavigationManager Nav
 
-<PageTitle>Expense Dashboard</PageTitle>
+<PageTitle>Hanny Balance</PageTitle>
 
-<section class="hero">
-    <div class="eyebrow">Expense dashboard</div>
-    <h1>Track grocery spend from confirmed baskets.</h1>
-    <p>Use scanned receipts to see monthly spend, remaining budget, stores, and category pressure.</p>
-    <a class="button-primary" href="scan">Scan receipt</a>
+<section class="balance-hero">
+    <div>
+        <div class="eyebrow light">Hanny Balance</div>
+        <h1>Money, basket wellbeing, and points—together.</h1>
+        <p>Each confirmed receipt keeps your monthly picture current without mixing your private budget with the shared product catalog.</p>
+    </div>
+    <a class="button-primary balance-scan" href="scan">Scan new receipt</a>
 </section>
 
 @if (_busy)
 {
-    <p><em>Loading latest expense dashboard…</em></p>
+    <div class="balance-loading">Building your personal balance…</div>
 }
 else if (_expense is null)
 {
-    <article class="app-card">
-        <h2>No confirmed baskets yet</h2>
-        <p class="muted">Scan and confirm a receipt to create your first expense dashboard.</p>
+    <article class="empty-balance">
+        <span class="empty-icon">◒</span>
+        <div>
+            <div class="eyebrow">Your first insight</div>
+            <h2>Scan one receipt to start Hanny Balance.</h2>
+            <p>Hanny will create your spending view, basket signals, and first points estimate.</p>
+        </div>
         <button class="primary" @onclick="ScanReceipt">Scan receipt</button>
     </article>
 }
 else
 {
-    <section class="dashboard-grid">
-        <article class="app-card">
-            <div class="eyebrow">Latest basket</div>
-            <h2>@_expense.Total.ToString("C")</h2>
-            <p class="muted">@_expense.StoreName · @_expense.PurchasedAt.ToString("d")</p>
-            <a href="@($"budget/{_expense.ReceiptId}")">Open basket detail</a>
+    <section class="balance-overview">
+        <article class="balance-card budget-card">
+            <div class="card-topline"><span>Budget tracker</span><b>@BudgetPercent%</b></div>
+            <strong>@_expense.Dashboard.Spent.ToString("C")</strong>
+            <small>spent of @_expense.Dashboard.MonthlyBudget.ToString("C")</small>
+            <div class="balance-progress"><i style="width:@BudgetPercent%"></i></div>
+            <p class="balance-status @(_expense.Dashboard.Remaining < 0 ? "negative" : "")">
+                @(_expense.Dashboard.Remaining < 0
+                    ? $"{Math.Abs(_expense.Dashboard.Remaining):C} over your target"
+                    : $"{_expense.Dashboard.Remaining:C} still available")
+            </p>
         </article>
-        <article class="app-card">
-            <div class="eyebrow">Monthly spend</div>
-            <h2>@_expense.Dashboard.Spent.ToString("C")</h2>
-            <p class="muted">@_expense.Dashboard.Remaining.ToString("C") remaining from @_expense.Dashboard.MonthlyBudget.ToString("C").</p>
+
+        <article class="balance-card wellbeing-card">
+            <div class="card-topline"><span>Basket wellbeing</span><b>@WellbeingLabel</b></div>
+            <strong>@DistinctCategories</strong>
+            <small>categories in your latest basket</small>
+            <div class="category-dots" aria-label="Category variety">
+                @for (var index = 0; index < 6; index++)
+                {
+                    <i class="@(index < Math.Min(6, DistinctCategories) ? "filled" : "")"></i>
+                }
+            </div>
+            <p>@WellbeingMessage</p>
+        </article>
+
+        <article class="balance-card points-card">
+            <div class="card-topline"><span>Hanny Points</span><b>Estimated</b></div>
+            <strong>@EstimatedPoints</strong>
+            <small>points from receipt participation</small>
+            <div class="points-track"><i style="width:@PointsPercent%"></i></div>
+            <p>@Math.Max(0, 500 - EstimatedPoints) points until the next reward milestone.</p>
         </article>
     </section>
 
-    <section class="dashboard-grid">
-        <article class="app-card">
-            <h2>Spend by store</h2>
+    <section class="balance-detail-grid">
+        <article class="detail-card latest-basket">
+            <div class="detail-heading">
+                <div>
+                    <div class="eyebrow">Latest confirmed basket</div>
+                    <h2>@_expense.StoreName</h2>
+                </div>
+                <strong>@_expense.Total.ToString("C")</strong>
+            </div>
+            <p>@_expense.PurchasedAt.ToString("D") · @_expense.Lines.Count item(s)</p>
+            <div class="latest-products">
+                @foreach (var line in _expense.Lines.Take(5))
+                {
+                    <span title="@line.ProductName">
+                        @if (!string.IsNullOrWhiteSpace(line.ImageUrl))
+                        {
+                            <img src="@line.ImageUrl" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <i>•</i>
+                        }
+                    </span>
+                }
+            </div>
+            <a href="@($"budget/{_expense.ReceiptId}")">Open receipt and adjust budget →</a>
+        </article>
+
+        <article class="detail-card">
+            <div class="detail-heading">
+                <div>
+                    <div class="eyebrow">Where it went</div>
+                    <h2>By store</h2>
+                </div>
+            </div>
             @foreach (var item in _expense.Dashboard.ByStore)
             {
-                <p><strong>@item.Name</strong> · @item.Amount.ToString("C")</p>
+                <div class="breakdown-item">
+                    <div><span>@item.Name</span><strong>@item.Amount.ToString("C")</strong></div>
+                    <div class="thin-track"><i style="width:@BreakdownPercent(item.Amount)%"></i></div>
+                </div>
             }
         </article>
-        <article class="app-card">
-            <h2>Spend by category</h2>
-            @foreach (var item in _expense.Dashboard.ByCategory)
+
+        <article class="detail-card">
+            <div class="detail-heading">
+                <div>
+                    <div class="eyebrow">What shaped it</div>
+                    <h2>By category</h2>
+                </div>
+            </div>
+            @foreach (var item in _expense.Dashboard.ByCategory.Take(7))
             {
-                <p><strong>@item.Name</strong> · @item.Amount.ToString("C")</p>
+                <div class="breakdown-item">
+                    <div><span>@item.Name</span><strong>@item.Amount.ToString("C")</strong></div>
+                    <div class="thin-track category-track"><i style="width:@BreakdownPercent(item.Amount)%"></i></div>
+                </div>
             }
         </article>
+    </section>
+
+    <section class="wellbeing-note">
+        <span>Good to know</span>
+        <p>Basket wellbeing is a simple category-variety signal, not medical or nutritional advice. More product nutrition data can make this view richer later.</p>
     </section>
 }
 
@@ -69,10 +146,29 @@ else
     private string? _error;
     private bool _busy;
 
+    private decimal BudgetPercent =>
+        _expense is null || _expense.Dashboard.MonthlyBudget <= 0
+            ? 0
+            : Math.Min(100, Math.Round(_expense.Dashboard.Spent / _expense.Dashboard.MonthlyBudget * 100));
+
+    private int DistinctCategories =>
+        _expense?.Lines
+            .Select(line => string.IsNullOrWhiteSpace(line.Category) ? "Other" : line.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count() ?? 0;
+
+    private int EstimatedPoints =>
+        _expense is null ? 0 : 60 + _expense.Lines.Count * 3;
+
+    private decimal PointsPercent => Math.Min(100, Math.Round((decimal)EstimatedPoints / 500 * 100));
+    private string WellbeingLabel => DistinctCategories >= 5 ? "Varied" : DistinctCategories >= 3 ? "Building" : "Early view";
+    private string WellbeingMessage => DistinctCategories >= 5
+        ? "Your latest basket spans a broad mix of categories."
+        : "More confirmed baskets will make this signal more meaningful.";
+
     protected override async Task OnInitializedAsync()
     {
         _busy = true;
-
         try
         {
             _expense = await Api.GetLatestExpenseAsync();
@@ -80,13 +176,18 @@ else
         catch (Exception ex)
         {
             _expense = null;
-            _error = $"Couldn't load latest expense dashboard: {ex.Message}";
+            _error = $"Couldn't load Hanny Balance: {ex.Message}";
         }
         finally
         {
             _busy = false;
         }
     }
+
+    private decimal BreakdownPercent(decimal amount) =>
+        _expense is null || _expense.Dashboard.Spent <= 0
+            ? 0
+            : Math.Min(100, Math.Round(amount / _expense.Dashboard.Spent * 100));
 
     private void ScanReceipt() => Nav.NavigateTo("/scan");
 }

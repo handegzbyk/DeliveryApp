@@ -5,20 +5,20 @@
 @inject ShopApiClient Api
 @inject NavigationManager Nav
 
-<PageTitle>Scan & confirm receipt</PageTitle>
+<PageTitle>Hanny Scan</PageTitle>
 
 <main class="receipt-review">
     @if (_model is null)
     {
         <section class="upload-panel">
-            <div class="eyebrow">Made for your basket</div>
-            <h1>Turn a receipt into your personal budget.</h1>
+            <div class="eyebrow">Hanny Scan</div>
+            <h1>One receipt. A clearer grocery picture.</h1>
             <p>
-                Take a photo or choose an image. We will read the receipt, suggest products, and let you
-                confirm each item with a quick horizontal swipe.
+                Take a photo or choose an image. Hanny reads the receipt, suggests products, and lets you
+                confirm each item with a quick sideways swipe.
             </p>
             <label class="receipt-picker">
-                <span>@(_busy ? "Reading your receipt…" : "Choose receipt image")</span>
+                <span>@(_busy ? "Hanny is reading your receipt…" : "Take or choose a receipt photo")</span>
                 <InputFile OnChange="OnFile" accept="image/*" capture="environment" disabled="@_busy" />
             </label>
         </section>
@@ -27,9 +27,9 @@
     {
         <header class="review-heading">
             <div>
-                <div class="eyebrow">Personal receipt review</div>
-                <h1>Confirm what is yours.</h1>
-                <p>Swipe through the small product cards and tap the right match.</p>
+                <div class="eyebrow">Hanny Scan review</div>
+                <h1>Confirm the right products.</h1>
+                <p>Swipe through the compact cards and tap the best match—or choose “Not this.”</p>
             </div>
             <button type="button" class="quiet-button" @onclick="StartOver" disabled="@_busy">Use another receipt</button>
         </header>
@@ -109,7 +109,7 @@
                 <div>
                     <div class="eyebrow">Everything confirmed</div>
                     <h2>Your receipt is ready.</h2>
-                    <p>Add it to your budget to update this month’s spend and category insights.</p>
+                    <p>Add it to Hanny Balance to update spend, basket signals, and points.</p>
                 </div>
             </section>
         }
@@ -146,10 +146,10 @@
         <div class="budget-action">
             <div>
                 <strong>@(AllConfirmed ? "All set" : $"{_rows.Count - ConfirmedCount} item(s) left")</strong>
-                <span>The receipt is saved only after every item is confirmed.</span>
+                <span>The receipt joins your private balance only after every item is confirmed.</span>
             </div>
             <button type="button" class="primary" @onclick="AddToBudget" disabled="@(!AllConfirmed || _busy)">
-                @(_busy ? "Adding…" : "Add to my budget")
+                @(_busy ? "Adding…" : "Add to Hanny Balance")
             </button>
         </div>
     }
