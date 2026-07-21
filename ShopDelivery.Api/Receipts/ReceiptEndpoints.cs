@@ -13,9 +13,12 @@ public static class ReceiptEndpoints
     {
         app.MapPost("/api/receipts/scan", async (
                 IFormFile file,
-                ReceiptExtractor extractor,
+                ReceiptExtractor? extractor,
                 CancellationToken ct) =>
             {
+                if (extractor is null)
+                    return Results.Problem("Receipt scanning is not available: Document Intelligence is not configured.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
                 if (file.Length == 0)
                     return Results.BadRequest("Empty file.");
                 await using var stream = file.OpenReadStream();
@@ -28,10 +31,13 @@ public static class ReceiptEndpoints
         app.MapPost("/api/receipts/review", async (
                 IFormFile file,
                 HttpRequest request,
-                ReceiptExtractor extractor,
+                ReceiptExtractor? extractor,
                 ProductMatcher matcher,
                 CancellationToken ct) =>
             {
+                if (extractor is null)
+                    return Results.Problem("Receipt scanning is not available: Document Intelligence is not configured.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
                 if (file.Length == 0)
                     return Results.BadRequest("Empty file.");
 

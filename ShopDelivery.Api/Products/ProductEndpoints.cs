@@ -68,10 +68,13 @@ public static class ProductEndpoints
         products.MapPost("/search-image", async (
                 IFormFile file,
                 HttpRequest request,
-                ProductTextExtractor extractor,
+                ProductTextExtractor? extractor,
                 ProductMatcher matcher,
                 CancellationToken ct) =>
             {
+                if (extractor is null)
+                    return Results.Problem("Image search is not available: Document Intelligence is not configured.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
                 if (file.Length == 0 || file.Length > 10_000_000)
                     return Results.BadRequest("Image must be between 1 byte and 10 MB.");
                 await using var stream = file.OpenReadStream();

@@ -129,6 +129,11 @@ if (catalogPath is not null)
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 app.UseCors();
+app.UseExceptionHandler(handler => handler.Run(async context =>
+{
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred." });
+}));
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", at = DateTimeOffset.UtcNow }));

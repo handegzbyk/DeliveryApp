@@ -14,11 +14,8 @@ public static class AiServiceExtensions
 
         if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(key))
         {
-            // Not configured (e.g. fresh Codespace) — register a stub so the API still boots.
-            services.AddSingleton<ReceiptExtractor>(_ =>
-                throw new InvalidOperationException("Document Intelligence is not configured."));
-            services.AddSingleton<ProductTextExtractor>(_ =>
-                throw new InvalidOperationException("Document Intelligence is not configured."));
+            // Not configured (e.g. fresh Codespace) — leave both services unregistered so
+            // endpoints can inject them as nullable (T?) and return a 503 instead of crashing.
             return services;
         }
 
