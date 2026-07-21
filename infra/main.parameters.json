@@ -22,6 +22,9 @@
       },
       "authenticationAudience": {
         "value": "${AUTHENTICATION_AUDIENCE}"
+      },
+      "sqlAdminPassword": {
+        "value": "${SQL_ADMIN_PASSWORD}"
       }
     }
 }
